@@ -1,5 +1,5 @@
 {
-  "name": "@hrdelwar/html-string-splitter",
+  "name": "html-string-splitter",
   "version": "1.0.0",
   "description": "Split html string by character and word count",
   "main": "index.js",
