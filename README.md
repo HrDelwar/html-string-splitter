@@ -73,7 +73,7 @@ console.log(
     splitByCharacterCount(
         `<p>This is text</p>split by <a href="#">character</a><strong>length </strong><p>also more text </p>`,
          15,
-         <button>Read More</button>
+         '<button>Read More</button>'
     )
 )
 /*
