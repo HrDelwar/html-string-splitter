@@ -2,9 +2,19 @@
 Split html string by character or word count
 <hr>
 
-Simple installation by npm
+Installation by npm
 ```
 npm install html-string-splitter
+```
+
+Installation with yarn
+```
+yarn add html-string-splitter
+```
+
+Installation with bun
+```
+bun add html-string-splitter
 ```
 
 ## Methods
