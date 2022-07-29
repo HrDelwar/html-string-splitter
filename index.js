@@ -1,12 +1,16 @@
 // split html string with character count
-function htmlStringSplitter(html = '', count = 0, by = '', btn = ''){
-    if(!html && typeof html !== 'string') return null;
-    count = Number(count);
-    if(!count) {
-        return null;
+function htmlStringSplitter(html = '', count = null, by = '', btn = ''){
+    if (!html || typeof html !== 'string' || !count) return null;
+
+    let forTotalCount = false;
+    if (count === 'count') {
+        forTotalCount = true;
+    } else {
+        count = Number(count);
+        if (isNaN(count)) return null;
     }
-    let htmlArr = html.match(/<[^> ]+[^>]*>[^<]*/g)
-    let htmlStr = '',  totalCount = 0;
+
+    let htmlArr = html.match(/<[^> ]+[^>]*>[^<]*/g), htmlStr = '',  totalCount = 0;
 
     for ( let i = 0; i < htmlArr.length; i++){
         let element = htmlArr[i], tag, str;
@@ -14,7 +18,10 @@ function htmlStringSplitter(html = '', count = 0, by = '', btn = ''){
         if (by === 'word') {
             str =  str.split(' ').filter(el => el.length !== 0);
         }
-
+        if (forTotalCount) {
+            totalCount += str.length;
+            continue;
+        }
         tag = element.match(/(<([^>]+)>)/ig)[0];
         totalCount += str.length;
 
@@ -46,16 +53,27 @@ function htmlStringSplitter(html = '', count = 0, by = '', btn = ''){
         }
 
     }
+    if (forTotalCount) {
+        return totalCount;
+    }
     return htmlStr;
 }
 
-function splitByWordCount(html, count, btn) {
+function splitByWordCount(html ='', count = null, btn ='') {
     return htmlStringSplitter(html, count, 'word', btn);
 }
- function splitByCharacterCount(html, count, btn) {
+ function splitByCharacterCount(html='', count= null, btn ='') {
     return htmlStringSplitter(html, count, '', btn);
+}
+function getCharacterCount(html=''){
+    return htmlStringSplitter(html, 'count', '');
+}
+function getWordCount(html=''){
+    return htmlStringSplitter(html, 'count', 'word');
 }
 module.exports ={
     splitByCharacterCount,
-    splitByWordCount
+    splitByWordCount,
+    getCharacterCount,
+    getWordCount
 }
