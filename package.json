@@ -1,7 +1,7 @@
 {
   "name": "html-string-splitter",
-  "version": "1.0.1",
-  "description": "Split html string by character and word count",
+  "version": "1.0.2",
+  "description": "Split and get html string by character or word. ",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -11,9 +11,12 @@
     "url": "git+https://github.com/HrDelwar/html-string-splitter.git"
   },
   "keywords": [
-    "html-splite",
-    "html-string-splitter",
-    "split-html"
+    "html",
+    "html string",
+    "splitter",
+    "html splite",
+    "html string splitter",
+    "split html"
   ],
   "author": "HrDelwar",
   "license": "ISC",
