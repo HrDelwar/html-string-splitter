@@ -1,10 +1,31 @@
 {
   "name": "html-string-splitter",
-  "version": "1.0.2",
-  "description": "Split and get html string by character or word. ",
-  "main": "index.js",
+  "version": "2.0.0",
+  "description": "Split HTML strings by character, word, sentence, or HTML tag while preserving valid HTML structure.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsup",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run typecheck && npm run test && npm run build"
   },
   "repository": {
     "type": "git",
@@ -12,16 +33,35 @@
   },
   "keywords": [
     "html",
-    "html string",
-    "splitter",
-    "html splite",
-    "html string splitter",
-    "split html"
+    "html split",
+    "html truncate",
+    "html splitter",
+    "html clip",
+    "html slice",
+    "html text",
+    "html word count",
+    "html character count",
+    "truncate",
+    "split",
+    "text extraction",
+    "word count",
+    "element split",
+    "tag split",
+    "typescript"
   ],
   "author": "HrDelwar",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/HrDelwar/html-string-splitter/issues"
   },
-  "homepage": "https://github.com/HrDelwar/html-string-splitter#readme"
+  "homepage": "https://github.com/HrDelwar/html-string-splitter#readme",
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^2.0.0",
+    "@vitest/coverage-v8": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
 }
