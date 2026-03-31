@@ -53,10 +53,16 @@ export function chunk(html: string, options: ChunkOptions): string[] {
 
   while (offset < total) {
     const chunkSize = Math.min(size, total - offset);
-    const result = splitFromTokens(tokens, remaining, {
+    let result = splitFromTokens(tokens, remaining, {
       keep: chunkSize, by, ellipsis: '', suffix: '',
       preserveWords, stripTags: false,
     });
+    if (preserveWords && result.kept === 0) {
+      result = splitFromTokens(tokens, remaining, {
+        keep: chunkSize, by, ellipsis: '', suffix: '',
+        preserveWords: false, stripTags: false,
+      });
+    }
     if (!result.html || result.kept === 0) break;
     chunks.push(result.html);
 

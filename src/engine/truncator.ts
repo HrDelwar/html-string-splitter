@@ -34,14 +34,15 @@ function sliceText(decoded: string, unitCount: number, by: SplitUnit, preserveWo
         // Backtrack to last word boundary, trim trailing space
         const trimmed = sliced.trimEnd();
         const lastSpace = trimmed.lastIndexOf(' ');
-        if (lastSpace > 0 && lastSpace < trimmed.length - 1) {
-          return trimmed.slice(0, lastSpace);
+        if (lastSpace >= 0 && lastSpace < trimmed.length - 1) {
+          return trimmed.slice(0, lastSpace + 1).trimEnd();
         }
         return trimmed;
       }
-      // number: scan forward up to N extra chars to finish the word
       const extended = graphemeSlice(decoded, 0, unitCount + preserveWords);
-      const spaceAfter = extended.indexOf(' ', sliced.length);
+      let scanFrom = sliced.length;
+      while (scanFrom < extended.length && extended[scanFrom] === ' ') scanFrom++;
+      const spaceAfter = extended.indexOf(' ', scanFrom);
       if (spaceAfter !== -1) {
         return extended.slice(0, spaceAfter);
       }
@@ -51,7 +52,18 @@ function sliceText(decoded: string, unitCount: number, by: SplitUnit, preserveWo
   }
 
   const units = textToUnits(decoded, by, wordPattern);
-  return units.slice(0, unitCount).join(by === 'word' ? ' ' : ' ');
+  if (wordPattern) {
+    const kept = units.slice(0, unitCount);
+    if (kept.length === 0) return '';
+    const lastUnit = kept[kept.length - 1];
+    let searchFrom = 0;
+    for (let i = 0; i < kept.length - 1; i++) {
+      searchFrom = decoded.indexOf(kept[i], searchFrom) + kept[i].length;
+    }
+    const lastIdx = decoded.indexOf(lastUnit, searchFrom);
+    return decoded.slice(0, lastIdx + lastUnit.length);
+  }
+  return units.slice(0, unitCount).join(' ');
 }
 
 /** Map decoded char positions back to raw positions to preserve HTML entities in output */
@@ -206,8 +218,8 @@ export function splitFromTokens(
       case TokenType.OpenTag: {
         // Line counting: block open = 1 line
         if (isLine && BLOCK_ELEMENTS.has(token.tagName!)) {
+          if (consumed + 1 > keep) { truncated = true; break; }
           consumed++;
-          if (consumed > keep) { truncated = true; break; }
         }
 
         // imageWeight: check before emitting — truncate if it would exceed keep
@@ -245,8 +257,8 @@ export function splitFromTokens(
       case TokenType.SelfClosingTag:
         // Line counting: <br>/<hr> = 1 line
         if (isLine && (token.tagName === 'br' || token.tagName === 'hr')) {
+          if (consumed + 1 > keep) { truncated = true; break; }
           consumed++;
-          if (consumed > keep) { truncated = true; break; }
         }
         // imageWeight: check before emitting
         if (!isLine && imageWeight && MEDIA_ELEMENTS.has(token.tagName!)) {
