@@ -19,8 +19,15 @@ export function split(html: string, options: SplitOptions): SplitResult {
     ellipsis: rawEllipsis,
     suffix = '',
     preserveWords = false,
-    stripTags = false,
+    stripTags = options.output === 'text' ? true : false,
     from = 'start',
+    selectiveTags,
+    stripComments = false,
+    smartEllipsis = false,
+    imageWeight = 0,
+    exclude,
+    wordPattern,
+    output = 'html',
   } = options;
   const by = resolveUnit(rawBy);
 
@@ -48,6 +55,9 @@ export function split(html: string, options: SplitOptions): SplitResult {
 
   // Tokenize once, reuse for count + split
   const tokens = tokenize(html);
+  const selectiveSet = selectiveTags ? new Set(selectiveTags) : undefined;
+  const excludeSet = exclude ? new Set(exclude) : undefined;
+  const outputText = output === 'both';
 
   if (keep === 0) {
     const total = countFromTokens(tokens, by);
@@ -69,5 +79,9 @@ export function split(html: string, options: SplitOptions): SplitResult {
   }
 
   // splitFromTokens handles keep >= total internally
-  return splitFromTokens(tokens, html, keep, by, ellipsis, suffix, preserveWords, stripTags);
+  return splitFromTokens(tokens, html, {
+    keep, by, ellipsis, suffix, preserveWords, stripTags,
+    selectiveTags: selectiveSet, stripComments, smartEllipsis,
+    imageWeight, exclude: excludeSet, outputText, wordPattern,
+  });
 }

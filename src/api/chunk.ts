@@ -10,11 +10,14 @@ import { countFromTokens } from './count.js';
 export function chunk(html: string, options: ChunkOptions): string[] {
   if (!html || typeof html !== 'string') return [];
 
-  const { size, by: rawBy = 'character' } = options;
+  const { size, by: rawBy = 'character', overlap = 0, breakAt } = options;
   const by = resolveUnit(rawBy);
   if (typeof size !== 'number' || size <= 0 || !Number.isFinite(size)) return [];
+  if (overlap >= size) throw new Error('overlap must be less than size');
 
   const tag = isTagUnit(by);
+  const preserveWords = breakAt === 'word' ? ('trim' as const) : false;
+  const advance = size - overlap;
 
   if (tag) {
     const total = countByTag(html, tag);
@@ -29,9 +32,10 @@ export function chunk(html: string, options: ChunkOptions): string[] {
       const result = splitByTag(remaining, chunkSize, tag, '', '');
       if (!result.html || result.kept === 0) break;
       chunks.push(result.html);
-      offset += result.kept;
+      const skip = Math.min(result.kept, advance);
+      offset += skip;
       if (!result.truncated) break;
-      remaining = stripConsumedByTag(remaining, result.kept, tag);
+      remaining = stripConsumedByTag(remaining, skip, tag);
       if (!remaining) break;
     }
     return chunks;
@@ -49,13 +53,19 @@ export function chunk(html: string, options: ChunkOptions): string[] {
 
   while (offset < total) {
     const chunkSize = Math.min(size, total - offset);
-    const result = splitFromTokens(tokens, remaining, chunkSize, by, '', '', false, false);
+    const result = splitFromTokens(tokens, remaining, {
+      keep: chunkSize, by, ellipsis: '', suffix: '',
+      preserveWords, stripTags: false,
+    });
     if (!result.html || result.kept === 0) break;
     chunks.push(result.html);
-    offset += result.kept;
+
+    const actualKept = result.kept;
+    const skip = Math.min(actualKept, advance);
+    offset += skip;
     if (!result.truncated) break;
 
-    remaining = stripConsumed(remaining, result.kept, by);
+    remaining = stripConsumed(remaining, skip, by);
     if (!remaining) break;
     tokens = tokenize(remaining);
   }

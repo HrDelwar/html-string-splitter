@@ -3,9 +3,11 @@ import { TokenType } from '../types.js';
 import { decodeEntities, graphemeSlice } from '../parse/entities.js';
 import { tokenize } from '../parse/tokenizer.js';
 import { countUnits, textToUnits } from './counter.js';
+import { BLOCK_ELEMENTS } from './visibility.js';
 
 export function stripConsumed(html: string, unitCount: number, by: SplitUnit): string {
   const tokens = tokenize(html);
+  const isLine = by === 'line';
   let consumed = 0;
   let output = '';
   const tagStack: string[] = [];
@@ -20,6 +22,14 @@ export function stripConsumed(html: string, unitCount: number, by: SplitUnit): s
     switch (token.type) {
       case TokenType.OpenTag:
         tagStack.push(token.tagName!);
+        if (isLine && BLOCK_ELEMENTS.has(token.tagName!)) {
+          consumed++;
+          if (consumed > unitCount) {
+            skipping = false;
+            output += token.raw;
+            break;
+          }
+        }
         output += token.raw;
         break;
 
@@ -31,12 +41,28 @@ export function stripConsumed(html: string, unitCount: number, by: SplitUnit): s
       }
 
       case TokenType.SelfClosingTag:
+        if (isLine && (token.tagName === 'br' || token.tagName === 'hr')) {
+          consumed++;
+          if (consumed > unitCount) {
+            skipping = false;
+            output += token.raw;
+            break;
+          }
+        }
+        output += token.raw;
+        break;
+
       case TokenType.Comment:
       case TokenType.RawContent:
         output += token.raw;
         break;
 
       case TokenType.Text: {
+        if (isLine) {
+          // In line mode, text is just passed through
+          if (!skipping) output += token.raw;
+          break;
+        }
         if (!token.content) {
           output += token.raw;
           break;

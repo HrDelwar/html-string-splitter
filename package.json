@@ -1,7 +1,7 @@
 {
   "name": "html-string-splitter",
-  "version": "2.0.0",
-  "description": "Split HTML strings by character, word, sentence, or HTML tag while preserving valid HTML structure.",
+  "version": "2.1.0",
+  "description": "Split HTML strings by character, word, sentence, line, or HTML tag while preserving valid HTML structure.",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -33,20 +33,14 @@
   },
   "keywords": [
     "html",
-    "html split",
-    "html truncate",
-    "html splitter",
-    "html clip",
-    "html slice",
-    "html text",
-    "html word count",
-    "html character count",
+    "html-split",
+    "html-truncate",
+    "html-chunk",
+    "html-tokenizer",
     "truncate",
     "split",
-    "text extraction",
-    "word count",
-    "element split",
-    "tag split",
+    "word-count",
+    "text-extraction",
     "typescript"
   ],
   "author": "HrDelwar",
@@ -56,10 +50,10 @@
   },
   "homepage": "https://github.com/HrDelwar/html-string-splitter#readme",
   "devDependencies": {
+    "@vitest/coverage-v8": "^2.0.0",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",
-    "vitest": "^2.0.0",
-    "@vitest/coverage-v8": "^2.0.0"
+    "vitest": "^2.0.0"
   },
   "engines": {
     "node": ">=18"

@@ -3,27 +3,54 @@ import { TokenType } from '../types.js';
 import { decodeEntities, graphemeSlice } from '../parse/entities.js';
 import { tokenize } from '../parse/tokenizer.js';
 import { countUnits, textToUnits } from './counter.js';
-import { updateNonVisibleDepth } from './visibility.js';
+import { updateNonVisibleDepth, BLOCK_ELEMENTS } from './visibility.js';
 import { extractText } from './extractor.js';
+
+export interface TruncateOptions {
+  keep: number;
+  by: SplitUnit;
+  ellipsis: string;
+  suffix: string;
+  preserveWords: boolean | number | 'trim';
+  stripTags: boolean;
+  selectiveTags?: Set<string>;
+  stripComments?: boolean;
+  smartEllipsis?: boolean;
+  imageWeight?: number;
+  exclude?: Set<string>;
+  outputText?: boolean;
+  wordPattern?: RegExp;
+}
 
 function buildCloseTag(tagName: string): string {
   return `</${tagName}>`;
 }
 
-function sliceText(decoded: string, unitCount: number, by: SplitUnit, preserveWords: boolean): string {
+function sliceText(decoded: string, unitCount: number, by: SplitUnit, preserveWords: boolean | number | 'trim', wordPattern?: RegExp): string {
   if (by === 'character') {
     if (preserveWords) {
       const sliced = graphemeSlice(decoded, 0, unitCount);
-      const lastSpace = sliced.lastIndexOf(' ');
-      if (lastSpace > 0 && lastSpace < sliced.length - 1) {
-        return sliced.slice(0, lastSpace);
+      if (preserveWords === true || preserveWords === 'trim') {
+        // Backtrack to last word boundary, trim trailing space
+        const trimmed = sliced.trimEnd();
+        const lastSpace = trimmed.lastIndexOf(' ');
+        if (lastSpace > 0 && lastSpace < trimmed.length - 1) {
+          return trimmed.slice(0, lastSpace);
+        }
+        return trimmed;
       }
-      return sliced;
+      // number: scan forward up to N extra chars to finish the word
+      const extended = graphemeSlice(decoded, 0, unitCount + preserveWords);
+      const spaceAfter = extended.indexOf(' ', sliced.length);
+      if (spaceAfter !== -1) {
+        return extended.slice(0, spaceAfter);
+      }
+      return extended;
     }
     return graphemeSlice(decoded, 0, unitCount);
   }
 
-  const units = textToUnits(decoded, by);
+  const units = textToUnits(decoded, by, wordPattern);
   return units.slice(0, unitCount).join(by === 'word' ? ' ' : ' ');
 }
 
@@ -53,56 +80,155 @@ function partialRaw(raw: string, decoded: string, partial: string, by: SplitUnit
   return partial;
 }
 
+const MEDIA_ELEMENTS = new Set(['img', 'svg', 'video', 'audio', 'picture', 'canvas', 'iframe']);
+
+function isNextBlockClose(tokens: Token[], fromIndex: number): boolean {
+  for (let i = fromIndex + 1; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t.type === TokenType.CloseTag && BLOCK_ELEMENTS.has(t.tagName!)) return true;
+    if (t.type === TokenType.Text && t.content && t.content.trim()) return false;
+    if (t.type === TokenType.OpenTag) return false;
+  }
+  return false;
+}
+
+function rebuildWithoutExcluded(tokens: Token[], exclude: Set<string> | undefined, stripTags: boolean, selectiveTags?: Set<string>, stripComments?: boolean): string {
+  let output = '';
+  let exDepth = 0;
+
+  for (const token of tokens) {
+    if (exclude) {
+      if (token.type === TokenType.OpenTag && exclude.has(token.tagName!)) { exDepth++; continue; }
+      if (token.type === TokenType.CloseTag && exclude.has(token.tagName!)) { exDepth = Math.max(0, exDepth - 1); continue; }
+      if (exDepth > 0) continue;
+      if (token.type === TokenType.SelfClosingTag && exclude.has(token.tagName!)) continue;
+    }
+
+    if (stripTags) {
+      if (selectiveTags) {
+        // Only strip selective tags
+        if ((token.type === TokenType.OpenTag || token.type === TokenType.CloseTag || token.type === TokenType.SelfClosingTag) && selectiveTags.has(token.tagName!)) continue;
+      } else {
+        if (token.type === TokenType.OpenTag || token.type === TokenType.CloseTag || token.type === TokenType.SelfClosingTag) continue;
+      }
+    }
+    if (stripComments && token.type === TokenType.Comment) continue;
+    if (token.type === TokenType.Text && token.content && stripTags && !selectiveTags) {
+      output += decodeEntities(token.content);
+    } else {
+      output += token.raw;
+    }
+  }
+  return output;
+}
+
 /** Accepts pre-tokenized tokens to avoid re-tokenizing */
 export function splitFromTokens(
   tokens: Token[],
   html: string,
-  keep: number,
-  by: SplitUnit,
-  ellipsis: string,
-  suffix: string,
-  preserveWords: boolean,
-  stripTags: boolean,
+  opts: TruncateOptions,
 ): SplitResult {
+  const { keep, by, ellipsis, suffix, preserveWords, stripTags, selectiveTags, stripComments, smartEllipsis, imageWeight, exclude, outputText, wordPattern } = opts;
+  const isLine = by === 'line';
+
+  // --- Counting pass ---
   let totalCount = 0;
   let nvDepth = 0;
+  let exDepth = 0;
   for (const token of tokens) {
     nvDepth = updateNonVisibleDepth(token, nvDepth);
-    if (nvDepth === 0 && token.type === TokenType.Text && token.content) {
-      totalCount += countUnits(decodeEntities(token.content), by);
+    if (exclude) {
+      if (token.type === TokenType.OpenTag && exclude.has(token.tagName!)) exDepth++;
+      if (token.type === TokenType.CloseTag && exclude.has(token.tagName!)) exDepth = Math.max(0, exDepth - 1);
+    }
+    if (nvDepth > 0 || exDepth > 0) continue;
+
+    if (isLine) {
+      if (token.type === TokenType.OpenTag && BLOCK_ELEMENTS.has(token.tagName!)) totalCount++;
+      if (token.type === TokenType.SelfClosingTag && (token.tagName === 'br' || token.tagName === 'hr')) totalCount++;
+    } else {
+      if (token.type === TokenType.Text && token.content) {
+        totalCount += countUnits(decodeEntities(token.content), by, wordPattern);
+      }
+      if (imageWeight && (token.type === TokenType.OpenTag || token.type === TokenType.SelfClosingTag) && MEDIA_ELEMENTS.has(token.tagName!)) {
+        totalCount += imageWeight;
+      }
     }
   }
 
   if (keep >= totalCount) {
-    return {
-      html: stripTags ? extractText(tokens) : html,
+    let resultHtml: string;
+    const needsRebuild = exclude || (stripTags && selectiveTags) || stripComments;
+    if (needsRebuild) {
+      resultHtml = rebuildWithoutExcluded(tokens, exclude, stripTags, selectiveTags, stripComments);
+    } else {
+      resultHtml = stripTags ? extractText(tokens) : html;
+    }
+    const result: SplitResult = {
+      html: resultHtml,
       truncated: false,
       total: totalCount,
       kept: totalCount,
     };
+    if (outputText) result.text = extractText(tokens);
+    return result;
   }
 
+  // --- Main splitting pass ---
   let consumed = 0;
   let output = '';
+  let textOutput = outputText ? '' : undefined;
   const tagStack: { tagName: string; attributes?: string }[] = [];
   let truncated = false;
   nvDepth = 0;
+  exDepth = 0;
   let ellipsisInserted = false;
 
-  for (const token of tokens) {
+  const shouldStripTag = (tag: string) => {
+    if (!stripTags) return false;
+    if (!selectiveTags) return true;
+    return selectiveTags.has(tag);
+  };
+
+  for (let ti = 0; ti < tokens.length; ti++) {
+    const token = tokens[ti];
     if (truncated) break;
     nvDepth = updateNonVisibleDepth(token, nvDepth);
 
+    // Exclude tracking
+    if (exclude) {
+      if (token.type === TokenType.OpenTag && exclude.has(token.tagName!)) exDepth++;
+      if (token.type === TokenType.CloseTag && exclude.has(token.tagName!)) { exDepth = Math.max(0, exDepth - 1); continue; }
+      if (exDepth > 0) continue;
+    }
+
     switch (token.type) {
-      case TokenType.OpenTag:
-        if (!stripTags) {
+      case TokenType.OpenTag: {
+        // Line counting: block open = 1 line
+        if (isLine && BLOCK_ELEMENTS.has(token.tagName!)) {
+          consumed++;
+          if (consumed > keep) { truncated = true; break; }
+        }
+
+        const stripped = shouldStripTag(token.tagName!);
+        if (!stripped) {
           tagStack.push({ tagName: token.tagName!, attributes: token.attributes });
           output += token.raw;
         }
-        break;
 
-      case TokenType.CloseTag:
-        if (!stripTags) {
+        // imageWeight for open tags (e.g. <video>)
+        if (!isLine && imageWeight && MEDIA_ELEMENTS.has(token.tagName!)) {
+          consumed += imageWeight;
+          if (consumed >= keep) {
+            truncated = true;
+          }
+        }
+        break;
+      }
+
+      case TokenType.CloseTag: {
+        const stripped = shouldStripTag(token.tagName!);
+        if (!stripped) {
           for (let j = tagStack.length - 1; j >= 0; j--) {
             if (tagStack[j].tagName === token.tagName) {
               tagStack.splice(j, 1);
@@ -111,11 +237,27 @@ export function splitFromTokens(
           }
           output += token.raw;
         }
+
         break;
+      }
 
       case TokenType.SelfClosingTag:
+        // Line counting: <br>/<hr> = 1 line
+        if (isLine && (token.tagName === 'br' || token.tagName === 'hr')) {
+          consumed++;
+          if (consumed > keep) { truncated = true; break; }
+        }
+        if (!shouldStripTag(token.tagName!)) output += token.raw;
+        if (!isLine && imageWeight && MEDIA_ELEMENTS.has(token.tagName!)) {
+          consumed += imageWeight;
+          if (consumed >= keep) {
+            truncated = true;
+          }
+        }
+        break;
+
       case TokenType.Comment:
-        if (!stripTags) output += token.raw;
+        if (!stripComments) output += token.raw;
         break;
 
       case TokenType.RawContent:
@@ -130,23 +272,34 @@ export function splitFromTokens(
           break;
         }
 
+        // Line mode: text is passed through without counting
+        if (isLine) {
+          output += stripTags ? decodeEntities(token.content) : token.raw;
+          if (textOutput !== undefined) textOutput += decodeEntities(token.content);
+          break;
+        }
+
         const decoded = decodeEntities(token.content);
-        const unitCount = countUnits(decoded, by);
+        const unitCount = countUnits(decoded, by, wordPattern);
 
         if (consumed + unitCount <= keep) {
           consumed += unitCount;
           output += stripTags ? decoded : token.raw;
+          if (textOutput !== undefined) textOutput += decoded;
           if (consumed === keep) {
-            output += ellipsis;
+            const atBlock = smartEllipsis && isNextBlockClose(tokens, ti);
+            output += atBlock ? '' : ellipsis;
             if (suffix) output += suffix;
             ellipsisInserted = true;
             truncated = true;
           }
         } else {
           const remaining = keep - consumed;
-          const partial = sliceText(decoded, remaining, by, preserveWords);
-          consumed += countUnits(partial, by);
+          const partial = sliceText(decoded, remaining, by, preserveWords, wordPattern);
+          consumed += countUnits(partial, by, wordPattern);
           output += stripTags ? partial : partialRaw(token.content!, decoded, partial, by);
+          if (textOutput !== undefined) textOutput += partial;
+          // Partial text = mid-content truncation, always show ellipsis
           output += ellipsis;
           if (suffix) output += suffix;
           ellipsisInserted = true;
@@ -162,29 +315,23 @@ export function splitFromTokens(
     if (suffix) output += suffix;
   }
 
-  if (!stripTags) {
+  if (!stripTags || selectiveTags) {
     for (let i = tagStack.length - 1; i >= 0; i--) {
       output += buildCloseTag(tagStack[i].tagName);
     }
   }
 
-  return {
+  const result: SplitResult = {
     html: output,
     truncated: true,
     total: totalCount,
     kept: consumed,
   };
+  if (textOutput !== undefined) result.text = textOutput;
+  return result;
 }
 
 /** Convenience: tokenizes then splits */
-export function splitCore(
-  html: string,
-  keep: number,
-  by: SplitUnit,
-  ellipsis: string,
-  suffix: string,
-  preserveWords: boolean,
-  stripTags: boolean,
-): SplitResult {
-  return splitFromTokens(tokenize(html), html, keep, by, ellipsis, suffix, preserveWords, stripTags);
+export function splitCore(html: string, opts: TruncateOptions): SplitResult {
+  return splitFromTokens(tokenize(html), html, opts);
 }

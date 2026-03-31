@@ -1,12 +1,19 @@
-export type SplitUnit = 'character' | 'word' | 'sentence' | 'c' | 'w' | 's' | (string & {});
+export type SplitUnit = 'character' | 'word' | 'sentence' | 'line' | 'c' | 'w' | 's' | 'l' | (string & {});
 
 export interface SplitOptions {
   keep: number;
   by?: SplitUnit;
   ellipsis?: string;
   suffix?: string;
-  preserveWords?: boolean;
+  preserveWords?: boolean | number | 'trim';
   stripTags?: boolean;
+  selectiveTags?: string[];
+  stripComments?: boolean;
+  smartEllipsis?: boolean;
+  imageWeight?: number;
+  exclude?: string[];
+  wordPattern?: RegExp;
+  output?: 'html' | 'text' | 'both';
   from?: 'start' | 'end';
 }
 
@@ -15,15 +22,19 @@ export interface SplitResult {
   truncated: boolean;
   total: number;
   kept: number;
+  text?: string;
 }
 
 export interface CountOptions {
   by?: SplitUnit;
+  wordPattern?: RegExp;
 }
 
 export interface ChunkOptions {
   size: number;
   by?: SplitUnit;
+  overlap?: number;
+  breakAt?: 'word' | 'sentence' | 'block';
 }
 
 export interface SplitAtOptions {
@@ -39,6 +50,33 @@ export interface SliceOptions {
   start?: number;
   end?: number;
   by?: SplitUnit;
+}
+
+export interface FindOptions {
+  by?: SplitUnit;
+}
+
+export interface FindResult {
+  start: number;
+  end: number;
+  text: string;
+}
+
+export interface WrapOptions {
+  every: number;
+  by?: SplitUnit;
+  tag?: string;
+  className?: string;
+  attributes?: Record<string, string>;
+}
+
+export interface SummaryResult {
+  characters: number;
+  words: number;
+  sentences: number;
+  lines: number;
+  blocks: number;
+  tags: Record<string, number>;
 }
 
 export const enum TokenType {

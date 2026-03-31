@@ -29,7 +29,7 @@ export function splitAt(html: string, options: SplitAtOptions): [string, string]
   if (at >= total) return [html, ''];
   if (at === 0) return ['', html];
 
-  const before = splitFromTokens(tokens, html, at, by, '', '', false, false);
+  const before = splitFromTokens(tokens, html, { keep: at, by, ellipsis: '', suffix: '', preserveWords: false, stripTags: false });
   const after = stripConsumed(html, at, by);
   return [before.html, after];
 }

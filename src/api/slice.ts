@@ -34,5 +34,5 @@ export function slice(html: string, options?: SliceOptions): string {
   if (tag) {
     return splitByTag(remaining, take, tag, '', '').html;
   }
-  return splitCore(remaining, take, by, '', '', false, false).html;
+  return splitCore(remaining, { keep: take, by, ellipsis: '', suffix: '', preserveWords: false, stripTags: false }).html;
 }
