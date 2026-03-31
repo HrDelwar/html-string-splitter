@@ -116,7 +116,7 @@ count(html, { by: 'img' });
 | [`summary(html)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/count.md#summary) | [`SummaryResult`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/count.md#summaryresult) | Full statistics in one pass |
 | [`pick(html, options)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/pick.md) | [`PickResult[]`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/pick.md#pickresult) | Extract pieces by text or tag |
 | [`highlight(html, query)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/pick.md#highlight) | `string` | Wrap text matches in a tag |
-| [`wrap(html, options)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/wrap.md) | `string` | Insert wrapper tags at intervals |
+| [`wrap(html, options)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/wrap.md) | `string` | Wrap content at intervals (by chars, words, or tags) |
 | [`tokenize(html)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/tokenize.md) | [`Token[]`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/tokenize.md#token-interface) | Low-level HTML tokenizer |
 
 ---
@@ -206,7 +206,7 @@ import type { SplitOptions, SplitResult, ChunkOptions, PickOptions, HighlightOpt
 
 **Advanced:**
 - [Pick & Highlight](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/pick.md) — Extract pieces and highlight matches
-- [Wrap](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/wrap.md) — Insert wrapper tags at intervals
+- [Wrap](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/wrap.md) — Wrap by chars, words, or tags
 - [Tokenize](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/tokenize.md) — Low-level tokenizer API
 
 **Reference:**

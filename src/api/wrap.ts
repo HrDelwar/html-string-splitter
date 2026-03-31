@@ -3,7 +3,7 @@ import { TokenType } from '../types.js';
 import { tokenize } from '../parse/tokenizer.js';
 import { decodeEntities, graphemeSlice } from '../parse/entities.js';
 import { countUnits, textToUnits } from '../engine/counter.js';
-import { resolveUnit } from '../engine/unit.js';
+import { resolveUnit, isTagUnit } from '../engine/unit.js';
 import { updateNonVisibleDepth } from '../engine/visibility.js';
 import { buildOpenTag } from '../engine/search.js';
 
@@ -34,6 +34,45 @@ export function wrap(html: string, options: WrapOptions): string {
   const openTag = buildOpenTag(tag, className, attributes);
   const closeTag = `</${tag}>`;
 
+  const tagUnit = isTagUnit(by);
+  if (tagUnit) return wrapByTag(tokens, every, tagUnit, openTag, closeTag);
+
+  return wrapByText(tokens, every, by, openTag, closeTag);
+}
+
+function wrapByTag(tokens: ReturnType<typeof tokenize>, every: number, tagName: string, openTag: string, closeTag: string): string {
+  let output = openTag;
+  let found = 0;
+  let depth = 0;
+
+  for (const token of tokens) {
+    if (token.type === TokenType.OpenTag && token.tagName === tagName) {
+      found++;
+      if (found > 1 && (found - 1) % every === 0 && depth === 0) {
+        output += closeTag + openTag;
+      }
+      depth++;
+    }
+
+    if (token.type === TokenType.CloseTag && token.tagName === tagName) {
+      depth--;
+    }
+
+    if (token.type === TokenType.SelfClosingTag && token.tagName === tagName) {
+      found++;
+      if (found > 1 && (found - 1) % every === 0) {
+        output += closeTag + openTag;
+      }
+    }
+
+    output += token.raw;
+  }
+
+  output += closeTag;
+  return output;
+}
+
+function wrapByText(tokens: ReturnType<typeof tokenize>, every: number, by: string, openTag: string, closeTag: string): string {
   let consumed = 0;
   let output = openTag;
   const tagStack: { tagName: string; raw: string }[] = [];
@@ -81,7 +120,6 @@ export function wrap(html: string, options: WrapOptions): string {
             output = insertBoundary(output, tagStack, closeTag, openTag);
           }
         } else {
-          // Split this text across wrapper boundaries
           let unitOffset = 0;
           while (unitOffset < unitCount) {
             const space = every - consumed;
@@ -110,6 +148,11 @@ export function wrap(html: string, options: WrapOptions): string {
     }
   }
 
-  output += closeTag;
+  if (output.endsWith(openTag)) {
+    output = output.slice(0, -openTag.length);
+  } else {
+    output += closeTag;
+  }
+
   return output;
 }

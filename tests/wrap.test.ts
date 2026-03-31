@@ -53,4 +53,45 @@ describe('wrap()', () => {
     const openSpans = (result.match(/<span>/g) || []).length;
     expect(openSpans).toBe(1);
   });
+
+  it('no empty trailing wrapper when content fits exactly', () => {
+    const result = wrap('Hello', { every: 5, by: 'c', tag: 'section' });
+    expect(result).toBe('<section>Hello</section>');
+  });
+});
+
+describe('wrap() by tag', () => {
+  it('wraps list items in groups', () => {
+    const result = wrap('<li>A</li><li>B</li><li>C</li><li>D</li><li>E</li>', { every: 2, by: 'li', tag: 'ul' });
+    expect(result).toBe('<ul><li>A</li><li>B</li></ul><ul><li>C</li><li>D</li></ul><ul><li>E</li></ul>');
+  });
+
+  it('wraps self-closing tags', () => {
+    const result = wrap('<img src="1"><img src="2"><img src="3">', { every: 2, by: 'img', tag: 'div' });
+    expect(result).toBe('<div><img src="1"><img src="2"></div><div><img src="3"></div>');
+  });
+
+  it('wraps paragraphs into sections', () => {
+    const result = wrap('<p>First</p><p>Second</p><p>Third</p><p>Fourth</p>', { every: 2, by: 'p', tag: 'section' });
+    expect(result).toBe('<section><p>First</p><p>Second</p></section><section><p>Third</p><p>Fourth</p></section>');
+  });
+
+  it('supports className and attributes in tag mode', () => {
+    const result = wrap('<li>A</li><li>B</li><li>C</li>', { every: 2, by: 'li', tag: 'ul', className: 'page', attributes: { role: 'list' } });
+    expect(result).toContain('class="page"');
+    expect(result).toContain('role="list"');
+    const opens = (result.match(/<ul/g) || []).length;
+    expect(opens).toBe(2);
+  });
+
+  it('single group when fewer than every', () => {
+    const result = wrap('<li>A</li><li>B</li>', { every: 5, by: 'li', tag: 'ul' });
+    expect(result).toBe('<ul><li>A</li><li>B</li></ul>');
+  });
+
+  it('preserves content between target tags', () => {
+    const result = wrap('<p>A</p>text<p>B</p><p>C</p>', { every: 2, by: 'p', tag: 'div' });
+    expect(result).toContain('text');
+    expect(result).toContain('<p>A</p>');
+  });
 });

@@ -2,47 +2,94 @@
 
 ## `wrap(html, options)` → `string`
 
-Insert wrapper tags at regular intervals. Useful for styling, targeting, or splitting content into visual segments.
+Insert wrapper tags at regular intervals — by character count, word count, or HTML tag count.
+
+### By character
 
 ```ts
 import { wrap } from 'html-string-splitter';
 
-// Wrap every 5 characters in a <span>
 wrap('Hello World', { every: 5, by: 'c' });
 // '<span>Hello</span><span> Worl</span><span>d</span>'
 
-// Wrap every 2 words
-wrap('one two three four five', { every: 2, by: 'w' });
-// '<span>one two </span><span>three four </span><span>five</span>'
+wrap('Hello World', { every: 5, by: 'c', tag: 'div' });
+// '<div>Hello</div><div> Worl</div><div>d</div>'
 
-// Custom tag
-wrap('<p>Hello World</p>', { every: 5, by: 'c', tag: 'div' });
-// '<div><p>Hello</p></div><div><p> Worl</p></div><div><p>d</p></div>'
-
-// Custom class name
-wrap('Hello World', { every: 5, by: 'c', tag: 'span', className: 'chunk' });
+wrap('Hello World', { every: 5, by: 'c', className: 'chunk' });
 // '<span class="chunk">Hello</span><span class="chunk"> Worl</span><span class="chunk">d</span>'
+```
 
-// Custom attributes
-wrap('Hello World', {
-  every: 5,
-  by: 'c',
-  tag: 'section',
-  attributes: { 'data-page': 'true', role: 'region' }
+### By word
+
+```ts
+wrap('one two three four five', { every: 2, by: 'w' });
+// '<span>one two</span><span>three four</span><span>five</span>'
+```
+
+### By HTML tag
+
+Wrap every N occurrences of a tag in a wrapper element:
+
+```ts
+// Group list items into pages of 2
+wrap('<li>A</li><li>B</li><li>C</li><li>D</li><li>E</li>', { every: 2, by: 'li', tag: 'ul' });
+// '<ul><li>A</li><li>B</li></ul><ul><li>C</li><li>D</li></ul><ul><li>E</li></ul>'
+
+// Group images into gallery rows of 3
+wrap('<img src="1"><img src="2"><img src="3"><img src="4"><img src="5">', {
+  every: 3,
+  by: 'img',
+  tag: 'div',
+  className: 'gallery-row'
 });
-// '<section data-page="true" role="region">Hello</section><section data-page="true" role="region"> Worl</section>...'
+// '<div class="gallery-row"><img src="1"><img src="2"><img src="3"></div>
+//  <div class="gallery-row"><img src="4"><img src="5"></div>'
 
-// With nested HTML — inner tags are properly closed and reopened at boundaries
+// Group table rows for lazy loading
+wrap('<tr><td>1</td></tr><tr><td>2</td></tr><tr><td>3</td></tr>', {
+  every: 2,
+  by: 'tr',
+  tag: 'tbody',
+  attributes: { 'data-lazy': 'true' }
+});
+// '<tbody data-lazy="true"><tr><td>1</td></tr><tr><td>2</td></tr></tbody>
+//  <tbody data-lazy="true"><tr><td>3</td></tr></tbody>'
+
+// Group paragraphs into sections
+wrap('<p>First</p><p>Second</p><p>Third</p><p>Fourth</p>', { every: 2, by: 'p', tag: 'section' });
+// '<section><p>First</p><p>Second</p></section><section><p>Third</p><p>Fourth</p></section>'
+```
+
+### With nested HTML
+
+Inner tags are properly closed and reopened at boundaries:
+
+```ts
 wrap('<p><strong>Bold text here</strong></p>', { every: 5, by: 'c' });
 // '<span><p><strong>Bold </strong></p></span><span><p><strong>text </strong></p></span><span><p><strong>here</strong></p></span>'
-// Each span contains valid, balanced HTML
+```
 
-// Content shorter than `every` — still wrapped once
-wrap('<p>Hi</p>', { every: 100, by: 'c' });
-// '<span><p>Hi</p></span>'
+### Custom attributes
 
-// Empty or invalid input
-wrap('', { every: 5 });  // ''
+All options (`tag`, `className`, `attributes`) work with both text and tag modes:
+
+```ts
+wrap('<li>A</li><li>B</li><li>C</li>', {
+  every: 2,
+  by: 'li',
+  tag: 'ul',
+  className: 'page',
+  attributes: { role: 'list', 'data-page': 'true' }
+});
+// '<ul class="page" role="list" data-page="true"><li>A</li><li>B</li></ul>
+//  <ul class="page" role="list" data-page="true"><li>C</li></ul>'
+```
+
+### Edge cases
+
+```ts
+wrap('<p>Hi</p>', { every: 100, by: 'c' });  // '<span><p>Hi</p></span>'
+wrap('', { every: 5 });                        // ''
 ```
 
 ### Options
@@ -50,40 +97,7 @@ wrap('', { every: 5 });  // ''
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `every` | `number` | — | **(required)** Units per wrapper segment |
-| `by` | [`SplitUnit`](https://github.com/HrDelwar/html-string-splitter#split-units) | `'c'` | What to count |
+| `by` | [`SplitUnit`](https://github.com/HrDelwar/html-string-splitter#split-units) | `'c'` | Characters, words, or any tag name |
 | `tag` | `string` | `'span'` | Wrapper element tag |
 | `className` | `string` | — | CSS class for wrapper |
 | `attributes` | `Record<string, string>` | — | Additional HTML attributes |
-
-### How It Works
-
-The wrapper properly handles nested HTML structure:
-
-1. When a boundary is reached, all currently open inner tags are closed
-2. The current wrapper tag is closed
-3. A new wrapper tag is opened
-4. All previously open inner tags are reopened (with original attributes)
-
-This ensures every wrapper segment contains valid, balanced HTML — no broken tags.
-
-### Use Cases
-
-**Pagination styling** — wrap content into page-sized segments:
-```ts
-const paged = wrap(article, { every: 500, by: 'c', tag: 'div', className: 'page' });
-```
-
-**Highlight intervals** — mark every N words for reading exercises:
-```ts
-const marked = wrap(text, { every: 10, by: 'w', tag: 'mark' });
-```
-
-**Lazy loading sections** — split long content for progressive rendering:
-```ts
-const sections = wrap(content, {
-  every: 3,
-  by: 'line',
-  tag: 'section',
-  attributes: { 'data-lazy': 'true' }
-});
-```

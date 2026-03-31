@@ -35,7 +35,7 @@ src/
     summary.ts      — summary() → SummaryResult (single-pass statistics)
     pick.ts         — pick() → PickResult[] (extract by text or tag)
     highlight.ts    — highlight() → string (wrap text matches in a tag)
-    wrap.ts         — wrap() → insert wrapper tags at intervals
+    wrap.ts         — wrap() → wrap by chars, words, or tags
 ```
 
 Three counting modes:
