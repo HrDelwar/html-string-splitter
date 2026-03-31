@@ -3,9 +3,10 @@ import { TokenType } from '../types.js';
 import { graphemeLength } from '../parse/entities.js';
 import { tokenize } from '../parse/tokenizer.js';
 
-export function textToUnits(decoded: string, by: SplitUnit): string[] {
+export function textToUnits(decoded: string, by: SplitUnit, wordPattern?: RegExp): string[] {
   switch (by) {
     case 'word':
+      if (wordPattern) return decoded.match(wordPattern) ?? [];
       return decoded.split(/(\s+)/).filter(s => s.length > 0 && !/^\s+$/.test(s));
     case 'sentence':
       // Lookbehind skips common abbreviations (Mr., Dr., etc.) and single-letter abbrevs (U., A.)
@@ -16,9 +17,9 @@ export function textToUnits(decoded: string, by: SplitUnit): string[] {
   }
 }
 
-export function countUnits(decoded: string, by: SplitUnit): number {
+export function countUnits(decoded: string, by: SplitUnit, wordPattern?: RegExp): number {
   if (by === 'character') return graphemeLength(decoded);
-  return textToUnits(decoded, by).length;
+  return textToUnits(decoded, by, wordPattern).length;
 }
 
 export function countByTag(html: string, tagName: string): number {

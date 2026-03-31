@@ -4,10 +4,12 @@ import { decodeEntities } from '../parse/entities.js';
 import { tokenize } from '../parse/tokenizer.js';
 import { resolveUnit, isTagUnit } from '../engine/unit.js';
 import { countUnits, countByTag } from '../engine/counter.js';
-import { updateNonVisibleDepth } from '../engine/visibility.js';
+import { updateNonVisibleDepth, BLOCK_ELEMENTS } from '../engine/visibility.js';
 
 /** Count from pre-tokenized tokens (avoids re-tokenizing) */
 export function countFromTokens(tokens: Token[], by: SplitUnit): number {
+  if (by === 'line') return countLines(tokens);
+
   let total = 0;
   let nvDepth = 0;
   for (const token of tokens) {
@@ -17,6 +19,18 @@ export function countFromTokens(tokens: Token[], by: SplitUnit): number {
     }
   }
   return total;
+}
+
+function countLines(tokens: Token[]): number {
+  let lines = 0;
+  let nvDepth = 0;
+  for (const token of tokens) {
+    nvDepth = updateNonVisibleDepth(token, nvDepth);
+    if (nvDepth > 0) continue;
+    if (token.type === TokenType.OpenTag && BLOCK_ELEMENTS.has(token.tagName!)) lines++;
+    if (token.type === TokenType.SelfClosingTag && (token.tagName === 'br' || token.tagName === 'hr')) lines++;
+  }
+  return lines;
 }
 
 export function count(html: string, options?: CountOptions): number {

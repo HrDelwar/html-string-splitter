@@ -4,9 +4,10 @@ const UNIT_ALIASES: Record<string, SplitUnit> = {
   c: 'character', character: 'character',
   w: 'word', word: 'word',
   s: 'sentence', sentence: 'sentence',
+  l: 'line', line: 'line',
 };
 
-const TEXT_UNITS = new Set(['character', 'word', 'sentence', 'c', 'w', 's']);
+const TEXT_UNITS = new Set(['character', 'word', 'sentence', 'line', 'c', 'w', 's', 'l']);
 
 export function resolveUnit(by: SplitUnit | undefined): SplitUnit {
   if (!by) return 'character';
