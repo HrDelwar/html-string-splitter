@@ -27,12 +27,10 @@ export function summary(html: string): SummaryResult {
       tags[name] = (tags[name] || 0) + 1;
 
       if (nvDepth === 0) {
+        const isBrHr = name === 'br' || name === 'hr';
         if (BLOCK_ELEMENTS.has(name)) {
           lines++;
-          blocks++;
-        }
-        if (token.type === TokenType.SelfClosingTag && (name === 'br' || name === 'hr')) {
-          lines++;
+          if (!isBrHr) blocks++;
         }
       }
     }

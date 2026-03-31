@@ -23,7 +23,7 @@ src/
     extractor.ts    — extractText() — plain text extraction
     unit.ts         — resolveUnit(), isTagUnit(), UNIT_ALIASES (c/w/s/l + tag names)
     visibility.ts   — NON_VISIBLE_ELEMENTS, BLOCK_ELEMENTS, updateNonVisibleDepth()
-    boundary.ts     — findLastSentenceEnd(), findBlockEnd() — for chunk breakAt
+    search.ts       — buildRegex(), escapeAttr(), buildOpenTag() — shared search/HTML helpers
   api/
     split.ts        — split() with all options (exclude, imageWeight, smartEllipsis, etc.)
     clip.ts         — clip() → string wrapper around split()
@@ -33,7 +33,8 @@ src/
     split-at.ts     — splitAt() → [string, string]
     slice.ts        — slice() with negative indices
     summary.ts      — summary() → SummaryResult (single-pass statistics)
-    find.ts         — find() → FindResult[] (text search across HTML boundaries)
+    pick.ts         — pick() → PickResult[] (extract by text or tag)
+    highlight.ts    — highlight() → string (wrap text matches in a tag)
     wrap.ts         — wrap() → insert wrapper tags at intervals
 ```
 
@@ -47,7 +48,7 @@ Data flow: `html` → `tokenize()` → `Token[]` → counting/splitting with tag
 ## Commands
 
 - **Build**: `npm run build` (tsup → `dist/` with ESM, CJS, `.d.ts`)
-- **Test**: `npm test` (vitest — 343 tests across 34 files)
+- **Test**: `npm test` (vitest — 354 tests across 35 files)
 - **Type check**: `npm run typecheck`
 
 ## Key Design Decisions

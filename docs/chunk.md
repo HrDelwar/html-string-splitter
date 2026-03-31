@@ -55,7 +55,7 @@ chunk('<p>Short</p>', { size: 100, by: 'c' });
 | `size` | `number` | — | **(required)** Units per chunk |
 | `by` | [`SplitUnit`](https://github.com/HrDelwar/html-string-splitter#split-units) | `'c'` | What to count |
 | `overlap` | `number` | `0` | Overlapping units between chunks |
-| `breakAt` | `'word' \| 'sentence' \| 'block'` | — | Prefer natural boundaries |
+| `breakAt` | `'word'` | — | Don't cut mid-word |
 
 See [Options Reference](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/options.md) for detailed explanations of each option.
 
@@ -94,7 +94,7 @@ chunk(html, { size: 10, by: 'w', overlap: 10 });
 
 ## Break at Natural Boundaries
 
-Use `breakAt` to avoid cutting mid-word or mid-sentence:
+Use `breakAt` to avoid cutting mid-word:
 
 ```ts
 // Without breakAt — may cut mid-word
@@ -113,9 +113,3 @@ chunk('<p>Hello beautiful world today</p>', { size: 8, by: 'c', breakAt: 'word' 
 //   ...
 // ]
 ```
-
-| Value | Behavior |
-|-------|----------|
-| `'word'` | Trims incomplete last word (uses `preserveWords: 'trim'` internally) |
-| `'sentence'` | Extends to next sentence end or trims to last complete sentence |
-| `'block'` | Extends to include complete block element |

@@ -210,18 +210,19 @@ export function splitFromTokens(
           if (consumed > keep) { truncated = true; break; }
         }
 
+        // imageWeight: check before emitting — truncate if it would exceed keep
+        if (!isLine && imageWeight && MEDIA_ELEMENTS.has(token.tagName!)) {
+          if (consumed + imageWeight > keep) {
+            truncated = true;
+            break;
+          }
+          consumed += imageWeight;
+        }
+
         const stripped = shouldStripTag(token.tagName!);
         if (!stripped) {
           tagStack.push({ tagName: token.tagName!, attributes: token.attributes });
           output += token.raw;
-        }
-
-        // imageWeight for open tags (e.g. <video>)
-        if (!isLine && imageWeight && MEDIA_ELEMENTS.has(token.tagName!)) {
-          consumed += imageWeight;
-          if (consumed >= keep) {
-            truncated = true;
-          }
         }
         break;
       }
@@ -247,13 +248,15 @@ export function splitFromTokens(
           consumed++;
           if (consumed > keep) { truncated = true; break; }
         }
-        if (!shouldStripTag(token.tagName!)) output += token.raw;
+        // imageWeight: check before emitting
         if (!isLine && imageWeight && MEDIA_ELEMENTS.has(token.tagName!)) {
-          consumed += imageWeight;
-          if (consumed >= keep) {
+          if (consumed + imageWeight > keep) {
             truncated = true;
+            break;
           }
+          consumed += imageWeight;
         }
+        if (!shouldStripTag(token.tagName!)) output += token.raw;
         break;
 
       case TokenType.Comment:

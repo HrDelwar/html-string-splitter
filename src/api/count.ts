@@ -7,7 +7,7 @@ import { countUnits, countByTag } from '../engine/counter.js';
 import { updateNonVisibleDepth, BLOCK_ELEMENTS } from '../engine/visibility.js';
 
 /** Count from pre-tokenized tokens (avoids re-tokenizing) */
-export function countFromTokens(tokens: Token[], by: SplitUnit): number {
+export function countFromTokens(tokens: Token[], by: SplitUnit, wordPattern?: RegExp): number {
   if (by === 'line') return countLines(tokens);
 
   let total = 0;
@@ -15,7 +15,7 @@ export function countFromTokens(tokens: Token[], by: SplitUnit): number {
   for (const token of tokens) {
     nvDepth = updateNonVisibleDepth(token, nvDepth);
     if (nvDepth === 0 && token.type === TokenType.Text && token.content) {
-      total += countUnits(decodeEntities(token.content), by);
+      total += countUnits(decodeEntities(token.content), by, wordPattern);
     }
   }
   return total;
@@ -40,5 +40,5 @@ export function count(html: string, options?: CountOptions): number {
   const tag = isTagUnit(by);
   if (tag) return countByTag(html, tag);
 
-  return countFromTokens(tokenize(html), by);
+  return countFromTokens(tokenize(html), by, options?.wordPattern);
 }

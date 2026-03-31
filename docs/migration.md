@@ -77,16 +77,23 @@ clip(html, { keep: 10, by: 'c' });
 
 ## New in v2.1
 
-### 3 new functions
+### 4 new functions
 
 ```ts
 // summary() — full statistics in one pass
 summary('<p>Hello world.</p>');
 // { characters: 12, words: 2, sentences: 1, lines: 1, blocks: 1, tags: { p: 1 } }
 
-// find() — search text across HTML boundaries
-find('<p>Hello <strong>world</strong></p>', 'world');
-// [{ start: 6, end: 11, text: 'world' }]
+// pick() — extract pieces by text search or tag
+pick('<p>Hello <strong>world</strong></p>', { text: 'world' });
+// [{ html: '<strong>world</strong>', text: 'world', start: 6, end: 11 }]
+
+pick('<ul><li>A</li><li>B</li></ul>', { tag: 'li' });
+// [{ html: '<li>A</li>', text: 'A', ... }, { html: '<li>B</li>', text: 'B', ... }]
+
+// highlight() — wrap text matches in a tag
+highlight('<p>Hello world</p>', 'world');
+// '<p>Hello <mark>world</mark></p>'
 
 // wrap() — insert wrapper tags at intervals
 wrap('Hello World', { every: 5, by: 'c' });

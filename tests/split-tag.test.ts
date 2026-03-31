@@ -155,6 +155,54 @@ describe('tag-based slice', () => {
   });
 });
 
+describe('tag-based advanced options', () => {
+  it('exclude removes elements in tag-based splitting', () => {
+    const html = '<ul><li>A</li><nav>Nav</nav><li>B</li></ul>';
+    const result = split(html, { keep: 2, by: 'li', exclude: ['nav'] });
+    expect(result.html).not.toContain('nav');
+    expect(result.html).not.toContain('Nav');
+    expect(result.html).toContain('<li>A</li>');
+    expect(result.html).toContain('<li>B</li>');
+  });
+
+  it('exclude works when keep >= total in tag mode', () => {
+    const html = '<p>Text</p><footer>Footer</footer>';
+    const result = split(html, { keep: 10, by: 'p', exclude: ['footer'] });
+    expect(result.html).not.toContain('footer');
+    expect(result.html).not.toContain('Footer');
+    expect(result.html).toContain('Text');
+  });
+
+  it('stripComments removes comments in tag-based splitting', () => {
+    const html = '<ul><!-- comment --><li>A</li><li>B</li></ul>';
+    const result = split(html, { keep: 1, by: 'li', stripComments: true });
+    expect(result.html).not.toContain('<!--');
+    expect(result.html).toContain('<li>A</li>');
+  });
+
+  it('output both returns text field in tag-based splitting', () => {
+    const html = '<ul><li>Hello</li><li>World</li></ul>';
+    const result = split(html, { keep: 1, by: 'li', output: 'both' });
+    expect(result.text).toBe('Hello');
+    expect(result.html).toContain('<li>Hello</li>');
+  });
+
+  it('output both works with from end in tag mode', () => {
+    const html = '<p>First</p><p>Second</p><p>Third</p>';
+    const result = split(html, { keep: 1, by: 'p', from: 'end', output: 'both' });
+    expect(result.text).toBe('Third');
+    expect(result.html).toContain('Third');
+  });
+
+  it('exclude + stripComments combined in tag mode', () => {
+    const html = '<!-- nav --><nav>Skip</nav><p>Keep</p>';
+    const result = split(html, { keep: 1, by: 'p', exclude: ['nav'], stripComments: true });
+    expect(result.html).not.toContain('nav');
+    expect(result.html).not.toContain('<!--');
+    expect(result.html).toContain('Keep');
+  });
+});
+
 describe('tag-based chunk', () => {
   it('chunks list into groups', () => {
     const html = '<ul><li>A</li><li>B</li><li>C</li><li>D</li><li>E</li><li>F</li></ul>';

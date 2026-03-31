@@ -1,20 +1,27 @@
-import type { SplitUnit, WrapOptions } from '../types.js';
+import type { WrapOptions } from '../types.js';
 import { TokenType } from '../types.js';
 import { tokenize } from '../parse/tokenizer.js';
-import { decodeEntities, graphemeLength, graphemeSlice } from '../parse/entities.js';
-import { countUnits } from '../engine/counter.js';
+import { decodeEntities, graphemeSlice } from '../parse/entities.js';
+import { countUnits, textToUnits } from '../engine/counter.js';
 import { resolveUnit } from '../engine/unit.js';
 import { updateNonVisibleDepth } from '../engine/visibility.js';
+import { buildOpenTag } from '../engine/search.js';
 
-function buildOpenTag(tag: string, className?: string, attributes?: Record<string, string>): string {
-  let s = `<${tag}`;
-  if (className) s += ` class="${className}"`;
-  if (attributes) {
-    for (const [k, v] of Object.entries(attributes)) {
-      s += ` ${k}="${v}"`;
-    }
+function sliceByUnit(text: string, start: number, end: number | undefined, by: string): string {
+  if (by === 'character') return graphemeSlice(text, start, end);
+  const units = textToUnits(text, by);
+  return units.slice(start, end).join(' ');
+}
+
+function insertBoundary(output: string, tagStack: { tagName: string; raw: string }[], closeTag: string, openTag: string): string {
+  for (let i = tagStack.length - 1; i >= 0; i--) {
+    output += `</${tagStack[i].tagName}>`;
   }
-  return s + '>';
+  output += closeTag + openTag;
+  for (const entry of tagStack) {
+    output += entry.raw;
+  }
+  return output;
 }
 
 export function wrap(html: string, options: WrapOptions): string {
@@ -71,54 +78,29 @@ export function wrap(html: string, options: WrapOptions): string {
           output += token.raw;
           if (consumed === every) {
             consumed = 0;
-            // Close inner tags, close wrapper, open new wrapper, reopen inner tags
-            for (let i = tagStack.length - 1; i >= 0; i--) {
-              output += `</${tagStack[i].tagName}>`;
-            }
-            output += closeTag + openTag;
-            for (const entry of tagStack) {
-              output += entry.raw;
-            }
+            output = insertBoundary(output, tagStack, closeTag, openTag);
           }
         } else {
-          // Need to split this text token across wrapper boundaries
-          let remaining = decoded;
-          let rawRemaining = token.content!;
-          while (remaining.length > 0) {
+          // Split this text across wrapper boundaries
+          let unitOffset = 0;
+          while (unitOffset < unitCount) {
             const space = every - consumed;
-            const unitSpace = countUnits(remaining, by);
+            const remaining = unitCount - unitOffset;
 
-            if (unitSpace <= space) {
-              consumed += unitSpace;
-              output += rawRemaining;
-              break;
-            }
-
-            // Take what fits
-            const partial = by === 'character'
-              ? graphemeSlice(remaining, 0, space)
-              : remaining; // for word/sentence, take the full text (simplified)
-            const partialUnits = countUnits(partial, by);
-            output += partial;
-            consumed += partialUnits;
-
-            // Advance remaining
-            if (by === 'character') {
-              remaining = graphemeSlice(remaining, space);
-              rawRemaining = remaining;
-            } else {
-              remaining = '';
-              rawRemaining = '';
-            }
-
-            if (consumed >= every && remaining.length > 0) {
-              consumed = 0;
-              for (let i = tagStack.length - 1; i >= 0; i--) {
-                output += `</${tagStack[i].tagName}>`;
+            if (remaining <= space) {
+              output += sliceByUnit(decoded, unitOffset, undefined, by);
+              consumed += remaining;
+              unitOffset = unitCount;
+              if (consumed === every) {
+                consumed = 0;
+                output = insertBoundary(output, tagStack, closeTag, openTag);
               }
-              output += closeTag + openTag;
-              for (const entry of tagStack) {
-                output += entry.raw;
+            } else {
+              output += sliceByUnit(decoded, unitOffset, unitOffset + space, by);
+              unitOffset += space;
+              consumed = 0;
+              if (unitOffset < unitCount) {
+                output = insertBoundary(output, tagStack, closeTag, openTag);
               }
             }
           }

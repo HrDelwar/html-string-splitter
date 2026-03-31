@@ -6,5 +6,6 @@ export { splitAt } from './split-at.js';
 export { slice } from './slice.js';
 export { clip } from './clip.js';
 export { summary } from './summary.js';
-export { find } from './find.js';
+export { pick } from './pick.js';
+export { highlight } from './highlight.js';
 export { wrap } from './wrap.js';

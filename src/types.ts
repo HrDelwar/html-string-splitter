@@ -34,7 +34,7 @@ export interface ChunkOptions {
   size: number;
   by?: SplitUnit;
   overlap?: number;
-  breakAt?: 'word' | 'sentence' | 'block';
+  breakAt?: 'word';
 }
 
 export interface SplitAtOptions {
@@ -52,14 +52,23 @@ export interface SliceOptions {
   by?: SplitUnit;
 }
 
-export interface FindOptions {
-  by?: SplitUnit;
+export interface PickOptions {
+  tag?: string;
+  text?: string | RegExp;
+  limit?: number;
 }
 
-export interface FindResult {
+export interface PickResult {
+  html: string;
+  text: string;
   start: number;
   end: number;
-  text: string;
+}
+
+export interface HighlightOptions {
+  tag?: string;
+  className?: string;
+  attributes?: Record<string, string>;
 }
 
 export interface WrapOptions {

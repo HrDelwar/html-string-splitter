@@ -7,32 +7,19 @@
 
 ## Why?
 
-Truncating HTML is hard. If you just use `String.slice()`, you'll break tags, lose closing elements, and produce invalid HTML. This library handles all of that — you just say how much to keep.
+Truncating HTML is hard. `String.slice()` breaks tags and produces invalid HTML. This library handles all of that:
 
 ```ts
-// Without this library (broken HTML)
+// Broken HTML
 '<p>Hello <strong>world</strong></p>'.slice(0, 18)
-// '<p>Hello <strong>w'  — broken <strong> tag!
+// '<p>Hello <strong>w'  — broken tag!
 
-// With this library (valid HTML)
+// Valid HTML
 clip('<p>Hello <strong>world</strong></p>', { keep: 7, by: 'c' })
-// '<p>Hello <strong>w...</strong></p>'  — tags properly closed
+// '<p>Hello <strong>w...</strong></p>'  — properly closed
 ```
 
-## Features
-
-- **Split by character, word, sentence, line, or HTML tag**
-- **Always valid HTML** — auto-closes open tags, handles nested elements
-- **Entity-aware** — `&amp;` counts as 1 character, not 5
-- **Emoji support** — `👨‍👩‍👧‍👦` counts as 1 character, not 7
-- **10 functions** — `clip`, `split`, `count`, `text`, `splitAt`, `slice`, `chunk`, `summary`, `find`, `wrap`
-- **Advanced options** — `exclude`, `imageWeight`, `smartEllipsis`, `selectiveTags`, `wordPattern`, and more
-- **Chunk with overlap** — overlapping chunks for RAG/LLM workflows
-- **Full TypeScript support** — types included out of the box
-- **Dual ESM + CJS** — works in Node.js, browsers, and bundlers
-- **Zero dependencies**
-
----
+**Zero dependencies. TypeScript. ESM + CJS. Emoji-safe. Entity-aware.**
 
 ## Installation
 
@@ -42,45 +29,93 @@ npm install html-string-splitter
 
 ---
 
-## Quick Start
+## Common Use Cases
 
+### Blog post preview
 ```ts
-import { clip, split, count, text, summary } from 'html-string-splitter';
+import { clip } from 'html-string-splitter';
 
-// Truncate to 10 characters
-clip('<p>Hello <strong>beautiful</strong> world</p>', { keep: 10, by: 'c' });
-// '<p>Hello <strong>beau...</strong></p>'
+clip(articleHtml, { keep: 200, by: 'c' });
+// First 200 characters with "..." and valid HTML
 
-// Split with metadata
-split('<p>Hello <strong>beautiful</strong> world</p>', { keep: 10, by: 'c' });
-// { html: '<p>Hello <strong>beau...</strong></p>', truncated: true, total: 21, kept: 10 }
+clip(articleHtml, { keep: 200, by: 'c', suffix: '<a href="/post">Read more</a>' });
+// With a "Read More" link
+```
 
-// Count words
+### Word-based truncation
+```ts
+clip('<p>Hello beautiful world</p>', { keep: 2, by: 'w' });
+// '<p>Hello beautiful...</p>'
+```
+
+### Conditional "Read More"
+```ts
+import { split } from 'html-string-splitter';
+
+const result = split(html, { keep: 200, by: 'c' });
+if (result.truncated) {
+  showReadMoreButton();
+}
+// result = { html, truncated, total, kept }
+```
+
+### Count words or characters
+```ts
+import { count } from 'html-string-splitter';
+
 count('<p>Hello world</p>', { by: 'w' });  // 2
+count('<p>A &amp; B</p>');                 // 5 (entity = 1 char)
+```
 
-// Extract plain text
-text('<p>Hello &amp; world</p>');  // 'Hello & world'
+### Extract plain text
+```ts
+import { text } from 'html-string-splitter';
 
-// Full content statistics in one pass
-summary('<p>Hello world.</p><p>Second paragraph.</p>');
-// { characters: 31, words: 4, sentences: 2, lines: 2, blocks: 2, tags: { p: 2 } }
+text('<p>Hello <strong>world</strong></p>');  // 'Hello world'
+```
+
+### Paginate an article
+```ts
+import { chunk } from 'html-string-splitter';
+
+const pages = chunk(articleHtml, { size: 100, by: 'w' });
+// pages[0] = first 100 words (valid HTML)
+// pages[1] = next 100 words (valid HTML)
+```
+
+### Split by HTML tag
+```ts
+// Keep first 3 paragraphs
+clip(html, { keep: 3, by: 'p' });
+
+// Keep first 5 list items
+clip(html, { keep: 5, by: 'li' });
+
+// Count all images
+count(html, { by: 'img' });
 ```
 
 ---
 
-## API Overview
+## Core API
 
 | Function | Returns | Description |
 |----------|---------|-------------|
 | [`clip(html, options)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/split.md) | `string` | Truncate HTML, return string |
-| [`split(html, options)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/split.md) | [`SplitResult`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/split.md#splitresult) | Truncate HTML with metadata |
-| [`count(html, options?)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/count.md) | `number` | Count units in HTML |
+| [`split(html, options)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/split.md) | [`SplitResult`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/split.md#splitresult) | Truncate with metadata |
+| [`count(html, options?)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/count.md) | `number` | Count units |
 | [`text(html, options?)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/text.md) | `string` | Extract plain text |
 | [`splitAt(html, options)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/split.md#splitat) | `[string, string]` | Split into two parts |
-| [`slice(html, options?)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/split.md#slice) | `string` | Extract a range |
+| [`slice(html, options?)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/split.md#slice) | `string` | Extract a range (like `String.slice`) |
 | [`chunk(html, options)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/chunk.md) | `string[]` | Split into equal parts |
+
+### Advanced API
+
+| Function | Returns | Description |
+|----------|---------|-------------|
 | [`summary(html)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/count.md#summary) | [`SummaryResult`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/count.md#summaryresult) | Full statistics in one pass |
-| [`find(html, query)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/find.md) | [`FindResult[]`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/find.md#findresult) | Find text positions across tags |
+| [`pick(html, options)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/pick.md) | [`PickResult[]`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/pick.md#pickresult) | Extract pieces by text or tag |
+| [`highlight(html, query)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/pick.md#highlight) | `string` | Wrap text matches in a tag |
 | [`wrap(html, options)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/wrap.md) | `string` | Insert wrapper tags at intervals |
 | [`tokenize(html)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/tokenize.md) | [`Token[]`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/tokenize.md#token-interface) | Low-level HTML tokenizer |
 
@@ -90,53 +125,60 @@ summary('<p>Hello world.</p><p>Second paragraph.</p>');
 
 The `by` parameter accepts:
 
-| Unit | Aliases | Description |
-|------|---------|-------------|
-| `'character'` | `'c'` | Grapheme clusters (emoji-safe) |
-| `'word'` | `'w'` | Whitespace-separated words |
-| `'sentence'` | `'s'` | Sentence boundaries (`.!?`) |
-| `'line'` | `'l'` | Block elements + `<br>` |
-| Any tag name | — | e.g. `'p'`, `'li'`, `'tr'`, `'img'` |
+| Unit | Alias | Example |
+|------|-------|---------|
+| `'character'` | `'c'` | `clip(html, { keep: 100, by: 'c' })` |
+| `'word'` | `'w'` | `clip(html, { keep: 20, by: 'w' })` |
+| `'sentence'` | `'s'` | `clip(html, { keep: 3, by: 's' })` |
+| `'line'` | `'l'` | `clip(html, { keep: 5, by: 'l' })` |
+| Any tag name | — | `clip(html, { keep: 3, by: 'p' })` |
 
 ---
 
-## [Split Options](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/options.md)
+## Options
+
+### Basic
 
 ```ts
-split(html, {
-  keep: 10,                    // units to keep (required)
-  by: 'c',                     // split unit
-  ellipsis: '...',             // appended at truncation point
-  suffix: '<a>Read more</a>',  // HTML after ellipsis
-  preserveWords: true,         // avoid mid-word cuts (true | number | 'trim')
-  stripTags: true,             // return plain text
-  selectiveTags: ['span'],     // only strip these tags (with stripTags)
-  stripComments: true,         // remove HTML comments
-  smartEllipsis: true,         // skip ellipsis at block boundaries
-  imageWeight: 5,              // character cost for media elements
-  exclude: ['figcaption'],     // remove these elements entirely
-  wordPattern: /[\p{Han}]|\w+/gu, // custom word boundaries (CJK etc.)
-  output: 'both',              // 'html' | 'text' | 'both'
-  from: 'end',                 // keep from start or end
+clip(html, {
+  keep: 10,            // units to keep (required)
+  by: 'c',             // split unit (default: 'c')
+  ellipsis: '...',     // appended at truncation (default: '...')
+  suffix: '<a>More</a>', // HTML after ellipsis
+  from: 'end',         // 'start' (default) or 'end'
+  stripTags: true,     // return plain text
 });
 ```
 
-See [Options Reference](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/options.md) for detailed documentation.
+### Advanced
 
----
+```ts
+split(html, {
+  keep: 100,
+  by: 'c',
+  preserveWords: true,         // don't cut mid-word (true | number | 'trim')
+  smartEllipsis: true,         // skip "..." at block boundaries
+  stripComments: true,         // remove HTML comments
+  exclude: ['figcaption'],     // remove elements entirely
+  selectiveTags: ['span'],     // only strip these tags (with stripTags)
+  imageWeight: 5,              // character cost for <img>, <video>, etc.
+  wordPattern: /[\p{Han}]|\w+/gu, // custom word boundaries (CJK)
+  output: 'both',              // return html + text in one pass
+});
+```
 
-## [Chunk Options](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/chunk.md#options)
+### Chunk
 
 ```ts
 chunk(html, {
   size: 100,           // units per chunk (required)
   by: 'w',             // split unit
-  overlap: 20,         // overlapping units between chunks (for RAG)
-  breakAt: 'word',     // prefer natural boundaries ('word' | 'sentence' | 'block')
+  overlap: 20,         // shared units between chunks (for RAG/LLM)
+  breakAt: 'word',     // don't cut mid-word
 });
 ```
 
-See [Chunk Documentation](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/chunk.md) for details.
+See [Options Reference](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/options.md) for detailed explanations with examples.
 
 ---
 
@@ -148,27 +190,26 @@ const { clip, split, count } = require('html-string-splitter');
 
 ## TypeScript
 
-Full type definitions included:
-
 ```ts
-import type {
-  SplitOptions, SplitResult, ChunkOptions, CountOptions,
-  SplitUnit, SummaryResult, FindResult, WrapOptions,
-  Token, TokenType,
-} from 'html-string-splitter';
+import type { SplitOptions, SplitResult, ChunkOptions, PickOptions, HighlightOptions } from 'html-string-splitter';
 ```
 
 ---
 
 ## Documentation
 
+**Guides:**
 - [Split & Clip](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/split.md) — Truncation, splitAt, slice
-- [Chunk](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/chunk.md) — Chunking with overlap and breakAt
+- [Chunk](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/chunk.md) — Pagination with overlap and breakAt
 - [Count & Summary](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/count.md) — Counting and statistics
 - [Text Extraction](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/text.md) — Plain text and output modes
-- [Find](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/find.md) — Text search across HTML boundaries
+
+**Advanced:**
+- [Pick & Highlight](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/pick.md) — Extract pieces and highlight matches
 - [Wrap](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/wrap.md) — Insert wrapper tags at intervals
 - [Tokenize](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/tokenize.md) — Low-level tokenizer API
+
+**Reference:**
 - [Options Reference](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/options.md) — All options in detail
 - [Migration from v1](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/migration.md) — Upgrade guide
 

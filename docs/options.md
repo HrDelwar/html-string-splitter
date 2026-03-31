@@ -1,8 +1,10 @@
 # Options Reference
 
-All options available for `split()` and `clip()`.
+All options available for `split()` and `clip()`. Start with the basic options — most use cases only need `keep`, `by`, and maybe `ellipsis`.
 
-## Core Options
+---
+
+## Basic Options
 
 ### `keep` (required)
 Number of units to keep from the content.
@@ -41,6 +43,14 @@ split(html, { keep: 5, by: 'w', from: 'end' });
 // '...<p>last five words here</p>'
 ```
 
+### `stripTags`
+When `true`, removes all HTML tags from output, returning plain text. Default: `false`.
+
+```ts
+split('<p>Hello <strong>world</strong></p>', { keep: 7, by: 'c', stripTags: true });
+// { html: 'Hello w...' }
+```
+
 ---
 
 ## Ellipsis & Suffix
@@ -66,6 +76,12 @@ HTML appended after the ellipsis. Useful for "Read More" links:
 split('<p>Hello world</p>', { keep: 5, by: 'c', suffix: '<a href="#">More</a>' });
 // { html: '<p>Hello...<a href="#">More</a></p>' }
 ```
+
+---
+
+## Advanced Options
+
+> Most users don't need these. The basic options above cover the majority of use cases.
 
 ### `smartEllipsis`
 When `true`, skips the ellipsis if truncation happens at a block-level boundary (e.g., after `</p>`). Default: `false`.
@@ -148,14 +164,6 @@ split('<p>Hello你好World世界</p>', {
 
 ## Tag Handling
 
-### `stripTags`
-When `true`, removes all HTML tags from output, returning plain text. Default: `false`.
-
-```ts
-split('<p>Hello <strong>world</strong></p>', { keep: 7, by: 'c', stripTags: true });
-// { html: 'Hello w...' }
-```
-
 ### `selectiveTags`
 When used with `stripTags: true`, only strips the specified tags (keeps all others):
 
@@ -192,6 +200,10 @@ split(html, { keep: 20, by: 'c' });
 // stripComments — comments removed
 split(html, { keep: 20, by: 'c', stripComments: true });
 // { html: '<p>Hello  world</p>' }
+
+// Works with tag-based splitting too
+split('<!-- nav --><ul><li>A</li></ul>', { keep: 1, by: 'li', stripComments: true });
+// { html: '<ul><li>A</li></ul>' }
 ```
 
 ### `exclude`
@@ -218,6 +230,10 @@ split(html, { keep: 50, by: 'c', exclude: ['nav', 'footer', 'aside'] });
 // Remove self-closing elements
 split('<p>Text <hr> more</p>', { keep: 100, by: 'c', exclude: ['hr'] });
 // { html: '<p>Text  more</p>' }
+
+// Works with tag-based splitting too
+split('<ul><li>A</li><nav>Nav</nav><li>B</li></ul>', { keep: 2, by: 'li', exclude: ['nav'] });
+// { html: '<ul><li>A</li><li>B</li></ul>' }
 ```
 
 ---
@@ -270,7 +286,7 @@ const r1 = split('<p>Hello <strong>world</strong></p>', { keep: 7, by: 'c' });
 const r2 = split('<p>Hello <strong>world</strong></p>', { keep: 7, by: 'c', output: 'text' });
 // { html: 'Hello w...', truncated: true }
 
-// Both — HTML and text in one pass, no duplicate tokenization
+// Both — HTML and text in one pass
 const r3 = split('<p>Hello <strong>world</strong></p>', { keep: 7, by: 'c', output: 'both' });
 // {
 //   html: '<p>Hello <strong>w...</strong></p>',
@@ -279,4 +295,8 @@ const r3 = split('<p>Hello <strong>world</strong></p>', { keep: 7, by: 'c', outp
 //   total: 11,
 //   kept: 7
 // }
+
+// Works with tag-based splitting too
+const r4 = split('<ul><li>Hello</li><li>World</li></ul>', { keep: 1, by: 'li', output: 'both' });
+// { html: '<ul><li>Hello</li></ul>', text: 'Hello', ... }
 ```
