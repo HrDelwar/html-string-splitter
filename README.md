@@ -217,4 +217,4 @@ import type { SplitOptions, SplitResult, ChunkOptions, PickOptions, HighlightOpt
 
 ## License
 
-[ISC](LICENSE) © [HrDelwar](https://github.com/HrDelwar)
+[MIT](LICENSE) © [HrDelwar](https://github.com/HrDelwar)

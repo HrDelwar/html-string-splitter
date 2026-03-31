@@ -44,7 +44,7 @@
     "typescript"
   ],
   "author": "HrDelwar",
-  "license": "ISC",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/HrDelwar/html-string-splitter/issues"
   },
