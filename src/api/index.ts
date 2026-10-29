@@ -11,3 +11,4 @@ export { highlight } from './highlight.js';
 export { wrap } from './wrap.js';
 export { excerpt } from './excerpt.js';
 export { snippet } from './snippet.js';
+export { createSplitter, splitStream } from './stream.js';
