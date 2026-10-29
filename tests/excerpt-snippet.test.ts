@@ -71,6 +71,10 @@ describe('snippet()', () => {
     expect(snippet('<p>a b c</p>', 'c', { radius: 5 })).toBe('<p>a b <mark>c</mark></p>');
   });
 
+  it('separates blocks in plain text', () => {
+    expect(snippet('<p>one two.</p><p>three four</p>', 'three', { radius: 1, stripTags: true })).toBe('…two. <mark>three</mark> four');
+  });
+
   it('can return escaped plain text', () => {
     const out = snippet('<p>a &lt;b&gt; tag <b>here</b> ok</p>', 'tag', { radius: 1, stripTags: true });
     expect(out).toBe('…&lt;b&gt; <mark>tag</mark> here…');

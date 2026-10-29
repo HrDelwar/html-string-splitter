@@ -56,7 +56,7 @@ describe('chunk() meta', () => {
       ['Guide', 'Install', 'Linux'],
       ['Guide', 'Install', 'Linux'],
     ]);
-    expect(chunks[1]).toMatchObject({ index: 1, start: 8, end: 15, text: 'InstallRun the installer now. Then restart.' });
+    expect(chunks[1]).toMatchObject({ index: 1, start: 8, end: 15, text: 'Install\nRun the installer now. Then restart.' });
   });
 
   it('pops sibling headings off the trail', () => {
@@ -71,9 +71,10 @@ describe('chunk() meta', () => {
   });
 });
 
-describe('chunk() is lossless in character mode', () => {
+describe('chunk() keeps all content', () => {
   it('concatenated chunk text equals the document text', () => {
     const chunks = chunk(article, { size: 7, by: 'c', breakAt: 'word', meta: true });
-    expect(chunks.map(c => c.text).join('')).toBe(text(article));
+    const squash = (t: string) => t.replace(/\s+/g, '');
+    expect(squash(chunks.map(c => c.text).join(''))).toBe(squash(text(article)));
   });
 });

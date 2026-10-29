@@ -67,7 +67,7 @@ export function chunk(html: HtmlInput, options: ChunkOptions): string[] | ChunkR
   const atoms = doc.atoms(spec);
   if (atoms.total === 0) return [];
   const level = breakAt ? BOUNDARY_LEVEL[breakAt] ?? 0 : 0;
-  const filters = { exclude: spec.exclude, stripComments };
+  const filters = { exclude: spec.exclude, stripComments, blockSeparator: '\n' };
   const trail = new HeadingTrail(atoms.headings);
   const results: ChunkResult[] = [];
 

@@ -35,6 +35,8 @@ export interface EmitOptions extends EmitFilters {
   breaks?: Pos[];
   breakOpen?: string;
   breakClose?: string;
+  /** Inserted into text output between blocks so their text doesn't run together. */
+  blockSeparator?: string;
 }
 
 interface OpenEntry {
@@ -59,6 +61,7 @@ export class Emitter {
   private hiddenOut = '';
   private mi = 0;
   private bi = 0;
+  private sepPending = false;
   private readonly plainStrip: boolean;
 
   constructor(private readonly o: EmitOptions) {
@@ -109,6 +112,7 @@ export class Emitter {
     if (this.o.breaks) this.breaksAt(ti, 0);
     if (tok.tagName && this.excluded(tok)) return;
     if (this.exDepth > 0) return;
+    if (this.o.blockSeparator && tok.tagName && BLOCK_ELEMENTS.has(tok.tagName)) this.sepPending = true;
 
     switch (tok.type) {
       case TokenType.OpenTag:
@@ -173,6 +177,7 @@ export class Emitter {
       }
 
       const s = d.slice(p, q);
+      this.separate();
       this.text += s;
       let piece: string;
       if (this.plainStrip) {
@@ -184,6 +189,15 @@ export class Emitter {
       this.out += marked ? this.o.markOpen! + piece + this.o.markClose! : piece;
       p = q;
     }
+  }
+
+  private separate(): void {
+    if (!this.sepPending) return;
+    this.sepPending = false;
+    const sep = this.o.blockSeparator!;
+    if (!this.text || this.text.endsWith(sep)) return;
+    this.text += sep;
+    if (this.plainStrip) this.out += sep;
   }
 
   private breaksAt(ti: number, off: number): void {

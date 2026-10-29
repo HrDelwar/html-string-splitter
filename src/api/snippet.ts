@@ -50,6 +50,7 @@ export function snippet(html: HtmlInput, query: string | RegExp, options?: Snipp
   const emit = {
     stripTags: o.stripTags,
     escapeText: o.stripTags && !!hl,
+    blockSeparator: ' ',
     marks: hl ? matches.map(m => m.mark) : undefined,
     markOpen,
     markClose,
