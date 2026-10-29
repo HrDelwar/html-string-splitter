@@ -1,46 +1,46 @@
-import type { WrapOptions } from '../types.js';
+import type { Token, WrapOptions } from '../types.js';
 import { TokenType } from '../types.js';
-import { tokenize } from '../parse/tokenizer.js';
-import { decodeEntities, graphemeSlice } from '../parse/entities.js';
-import { countUnits, textToUnits } from '../engine/counter.js';
-import { resolveUnit, isTagUnit } from '../engine/unit.js';
-import { updateNonVisibleDepth } from '../engine/visibility.js';
+import { startPos, toDoc, type HtmlInput } from '../engine/doc.js';
+import { render, type Pos } from '../engine/emit.js';
+import { resolveSpec } from '../engine/unit.js';
 import { buildOpenTag } from '../engine/search.js';
 
-function sliceByUnit(text: string, start: number, end: number | undefined, by: string): string {
-  if (by === 'character') return graphemeSlice(text, start, end);
-  const units = textToUnits(text, by);
-  return units.slice(start, end).join(' ');
-}
+export function wrap(html: HtmlInput, options: WrapOptions): string {
+  const doc = toDoc(html);
+  if (!doc) return '';
+  const { every, tag = 'span', className, attributes } = options;
+  if (typeof every !== 'number' || every <= 0 || !Number.isFinite(every)) return doc.html;
 
-function insertBoundary(output: string, tagStack: { tagName: string; raw: string }[], closeTag: string, openTag: string): string {
-  for (let i = tagStack.length - 1; i >= 0; i--) {
-    output += `</${tagStack[i].tagName}>`;
-  }
-  output += closeTag + openTag;
-  for (const entry of tagStack) {
-    output += entry.raw;
-  }
-  return output;
-}
-
-export function wrap(html: string, options: WrapOptions): string {
-  if (!html || typeof html !== 'string') return '';
-  const { every, by: rawBy = 'character', tag = 'span', className, attributes } = options;
-  if (typeof every !== 'number' || every <= 0 || !Number.isFinite(every)) return html;
-
-  const by = resolveUnit(rawBy);
-  const tokens = tokenize(html);
+  const spec = resolveSpec(options);
   const openTag = buildOpenTag(tag, className, attributes);
   const closeTag = `</${tag}>`;
+  if (spec.tag) return wrapByTag(doc.tokens, every, spec.tag, openTag, closeTag);
 
-  const tagUnit = isTagUnit(by);
-  if (tagUnit) return wrapByTag(tokens, every, tagUnit, openTag, closeTag);
+  const atoms = doc.atoms(spec);
+  const { tokens, decoded } = doc;
+  const breaks: Pos[] = [];
+  let units = every;
+  for (;;) {
+    const idx = atoms.firstFrom(units);
+    if (idx >= atoms.n) break;
+    const pos = startPos(atoms, idx)!;
+    if (pos.off === 0) {
+      while (pos.ti > 0 && isLeadIn(tokens[pos.ti - 1], decoded[pos.ti - 1])) pos.ti--;
+    }
+    breaks.push(pos);
+    units = atoms.cumBefore(idx) + every;
+  }
 
-  return wrapByText(tokens, every, by, openTag, closeTag);
+  const r = render(tokens, decoded, undefined, undefined, { exclude: spec.exclude, breaks, breakOpen: openTag, breakClose: closeTag });
+  return openTag + r.html + r.closers + closeTag;
 }
 
-function wrapByTag(tokens: ReturnType<typeof tokenize>, every: number, tagName: string, openTag: string, closeTag: string): string {
+function isLeadIn(tok: Token, decoded: string): boolean {
+  if (tok.type === TokenType.OpenTag) return true;
+  return tok.type === TokenType.Text && !/\S/.test(decoded);
+}
+
+function wrapByTag(tokens: Token[], every: number, tagName: string, openTag: string, closeTag: string): string {
   let output = openTag;
   let found = 0;
   let depth = 0;
@@ -69,90 +69,5 @@ function wrapByTag(tokens: ReturnType<typeof tokenize>, every: number, tagName: 
   }
 
   output += closeTag;
-  return output;
-}
-
-function wrapByText(tokens: ReturnType<typeof tokenize>, every: number, by: string, openTag: string, closeTag: string): string {
-  let consumed = 0;
-  let output = openTag;
-  const tagStack: { tagName: string; raw: string }[] = [];
-  let nvDepth = 0;
-
-  for (const token of tokens) {
-    nvDepth = updateNonVisibleDepth(token, nvDepth);
-
-    switch (token.type) {
-      case TokenType.OpenTag:
-        tagStack.push({ tagName: token.tagName!, raw: token.raw });
-        output += token.raw;
-        break;
-
-      case TokenType.CloseTag:
-        for (let j = tagStack.length - 1; j >= 0; j--) {
-          if (tagStack[j].tagName === token.tagName) {
-            tagStack.splice(j, 1);
-            break;
-          }
-        }
-        output += token.raw;
-        break;
-
-      case TokenType.SelfClosingTag:
-      case TokenType.Comment:
-      case TokenType.RawContent:
-        output += token.raw;
-        break;
-
-      case TokenType.Text: {
-        if (!token.content || nvDepth > 0) {
-          output += token.raw;
-          break;
-        }
-
-        const decoded = decodeEntities(token.content);
-        const unitCount = countUnits(decoded, by);
-
-        if (consumed + unitCount <= every) {
-          consumed += unitCount;
-          output += token.raw;
-          if (consumed === every) {
-            consumed = 0;
-            output = insertBoundary(output, tagStack, closeTag, openTag);
-          }
-        } else {
-          let unitOffset = 0;
-          while (unitOffset < unitCount) {
-            const space = every - consumed;
-            const remaining = unitCount - unitOffset;
-
-            if (remaining <= space) {
-              output += sliceByUnit(decoded, unitOffset, undefined, by);
-              consumed += remaining;
-              unitOffset = unitCount;
-              if (consumed === every) {
-                consumed = 0;
-                output = insertBoundary(output, tagStack, closeTag, openTag);
-              }
-            } else {
-              output += sliceByUnit(decoded, unitOffset, unitOffset + space, by);
-              unitOffset += space;
-              consumed = 0;
-              if (unitOffset < unitCount) {
-                output = insertBoundary(output, tagStack, closeTag, openTag);
-              }
-            }
-          }
-        }
-        break;
-      }
-    }
-  }
-
-  if (output.endsWith(openTag)) {
-    output = output.slice(0, -openTag.length);
-  } else {
-    output += closeTag;
-  }
-
   return output;
 }

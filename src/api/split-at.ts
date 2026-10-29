@@ -1,35 +1,22 @@
 import type { SplitAtOptions } from '../types.js';
-import { tokenize } from '../parse/tokenizer.js';
-import { resolveUnit, isTagUnit } from '../engine/unit.js';
-import { countByTag } from '../engine/counter.js';
-import { splitFromTokens } from '../engine/truncator.js';
-import { splitByTag, stripConsumedByTag } from '../engine/tag-truncator.js';
-import { stripConsumed } from '../engine/skipper.js';
-import { countFromTokens } from './count.js';
+import { cutPos, startPos, toDoc, type HtmlInput } from '../engine/doc.js';
+import { render } from '../engine/emit.js';
+import { resolveSpec } from '../engine/unit.js';
 
-export function splitAt(html: string, options: SplitAtOptions): [string, string] {
-  if (!html || typeof html !== 'string') return ['', ''];
-  const by = resolveUnit(options.by);
+export function splitAt(html: HtmlInput, options: SplitAtOptions): [string, string] {
+  const doc = toDoc(html);
+  if (!doc) return ['', ''];
   const at = options.at;
-  if (typeof at !== 'number' || at < 0 || !Number.isFinite(at)) return ['', html];
+  if (typeof at !== 'number' || at < 0 || !Number.isFinite(at)) return ['', doc.html];
 
-  const tag = isTagUnit(by);
+  const spec = resolveSpec(options);
+  const atoms = doc.atoms(spec);
+  if (at >= atoms.total) return [doc.html, ''];
+  if (at === 0) return ['', doc.html];
 
-  if (tag) {
-    const total = countByTag(html, tag);
-    if (at >= total) return [html, ''];
-    if (at === 0) return ['', html];
-    const before = splitByTag(html, at, tag, '', '');
-    const after = stripConsumedByTag(html, at, tag);
-    return [before.html, after];
-  }
-
-  const tokens = tokenize(html);
-  const total = countFromTokens(tokens, by);
-  if (at >= total) return [html, ''];
-  if (at === 0) return ['', html];
-
-  const before = splitFromTokens(tokens, html, { keep: at, by, ellipsis: '', suffix: '', preserveWords: false, stripTags: false });
-  const after = stripConsumed(html, at, by);
-  return [before.html, after];
+  const k = atoms.lastWithin(at);
+  const filters = { exclude: spec.exclude };
+  const before = render(doc.tokens, doc.decoded, undefined, cutPos(atoms, k, !!spec.tag), filters);
+  const after = render(doc.tokens, doc.decoded, startPos(atoms, k + 1), undefined, { ...filters, keepHidden: true });
+  return [before.html + before.closers, after.html + after.closers];
 }

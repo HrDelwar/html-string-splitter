@@ -1,8 +1,9 @@
 import type { TextOptions } from '../types.js';
-import { tokenize } from '../parse/tokenizer.js';
+import { toDoc, type HtmlInput } from '../engine/doc.js';
 import { extractText } from '../engine/extractor.js';
 
-export function text(html: string, options?: TextOptions): string {
-  if (!html || typeof html !== 'string') return '';
-  return extractText(tokenize(html), options?.separator);
+export function text(html: HtmlInput, options?: TextOptions): string {
+  const doc = toDoc(html);
+  if (!doc) return '';
+  return extractText(doc.tokens, options?.separator);
 }

@@ -28,7 +28,7 @@ describe('v1 backwards compatibility', () => {
 
   it('getWordCount works', () => {
     const result = getWordCount(html);
-    expect(result).toBe(10);
+    expect(result).toBe(9); // 'character' + 'length' render as one word
   });
 
   it('splitByCharacterCount returns null for invalid input', () => {

@@ -60,9 +60,8 @@ describe('summary()', () => {
   it('counts lines and blocks for block elements', () => {
     const html = '<div><p>Para one</p><p>Para two</p></div>';
     const result = summary(html);
-    // div, p, p are all block elements
-    expect(result.blocks).toBeGreaterThanOrEqual(3);
-    expect(result.lines).toBeGreaterThanOrEqual(3);
+    expect(result.blocks).toBe(3);
+    expect(result.lines).toBe(2); // the wrapping div adds no visual line
   });
 
   it('handles script content without counting it as text', () => {
