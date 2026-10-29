@@ -1,12 +1,12 @@
 import type { Token } from '../types.js';
 import { TokenType } from '../types.js';
-import { decodeEntities } from '../parse/entities.js';
 import { updateNonVisibleDepth, BLOCK_ELEMENTS } from './visibility.js';
 
-export function extractText(tokens: Token[], separator?: string): string {
+export function extractText(tokens: Token[], decoded: string[], separator?: string): string {
   let result = '';
   let nvd = 0;
-  for (const token of tokens) {
+  for (let ti = 0; ti < tokens.length; ti++) {
+    const token = tokens[ti];
     nvd = updateNonVisibleDepth(token, nvd);
     if (nvd > 0) continue;
 
@@ -17,9 +17,7 @@ export function extractText(tokens: Token[], separator?: string): string {
       if (!result.endsWith(separator)) result += separator;
     }
 
-    if (token.type === TokenType.Text && token.content) {
-      result += decodeEntities(token.content);
-    }
+    if (token.type === TokenType.Text) result += decoded[ti];
   }
   return result;
 }

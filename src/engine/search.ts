@@ -1,3 +1,6 @@
+import type { HighlightOptions } from '../types.js';
+import { escapeHtml } from '../parse/entities.js';
+
 export function buildRegex(query: string | RegExp): RegExp {
   if (typeof query === 'string') {
     return new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
@@ -6,7 +9,7 @@ export function buildRegex(query: string | RegExp): RegExp {
 }
 
 export function escapeAttr(value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return escapeHtml(value).replace(/"/g, '&quot;');
 }
 
 export function buildOpenTag(tag: string, className?: string, attributes?: Record<string, string>): string {
@@ -19,4 +22,10 @@ export function buildOpenTag(tag: string, className?: string, attributes?: Recor
     }
   }
   return s + '>';
+}
+
+/** Opening and closing markup for a wrapper element. */
+export function tagPair(defaultTag: string, o: HighlightOptions = {}): [string, string] {
+  const tag = o.tag ?? defaultTag;
+  return [buildOpenTag(tag, o.className, o.attributes), `</${tag}>`];
 }

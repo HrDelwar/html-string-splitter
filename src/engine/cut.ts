@@ -1,39 +1,48 @@
 import type { SplitOptions, SplitResult } from '../types.js';
 import type { DocCore } from './doc.js';
-import { cutPos, startPos } from './doc.js';
-import { atBlockEnd, render, type EmitFilters } from './emit.js';
+import { atBlockEnd, render, renderBalanced, type EmitFilters } from './emit.js';
 import type { AtomList } from './scan.js';
 import type { UnitSpec } from './unit.js';
+import { firstIndex, toTagSet } from './util.js';
 
-export interface CutContext {
-  doc: DocCore;
-  atoms: AtomList;
-  spec: UnitSpec;
+export type OutputSettings = Pick<SplitOptions, 'ellipsis' | 'suffix' | 'stripTags' | 'selectiveTags' | 'stripComments' | 'smartEllipsis' | 'output'>;
+
+export interface ResolvedOutput {
   ellipsis: string;
   suffix: string;
   filters: EmitFilters;
   smartEllipsis: boolean;
+}
+
+export interface CutContext extends ResolvedOutput {
+  doc: DocCore;
+  atoms: AtomList;
+  spec: UnitSpec;
   wantText: boolean;
   charMode: boolean;
 }
 
-type CutOptions = Pick<SplitOptions, 'ellipsis' | 'suffix' | 'stripTags' | 'selectiveTags' | 'stripComments' | 'smartEllipsis' | 'output'>;
-
-export function makeCutContext(doc: DocCore, spec: UnitSpec, o: CutOptions): CutContext {
-  const tagMode = !!spec.tag;
+/** Defaults shared by every truncating API, batch or streaming. */
+export function resolveOutput(spec: UnitSpec, o: OutputSettings): ResolvedOutput {
   return {
-    doc,
-    atoms: doc.atoms(spec),
-    spec,
-    ellipsis: o.ellipsis ?? (tagMode ? '' : '...'),
+    ellipsis: o.ellipsis ?? (spec.tag ? '' : '...'),
     suffix: o.suffix ?? '',
     filters: {
       stripTags: o.stripTags ?? o.output === 'text',
-      selectiveTags: o.selectiveTags ? new Set(o.selectiveTags.map(t => t.toLowerCase())) : undefined,
+      selectiveTags: toTagSet(o.selectiveTags),
       stripComments: !!o.stripComments,
       exclude: spec.exclude,
     },
     smartEllipsis: !!o.smartEllipsis,
+  };
+}
+
+export function makeCutContext(doc: DocCore, spec: UnitSpec, o: OutputSettings): CutContext {
+  return {
+    ...resolveOutput(spec, o),
+    doc,
+    atoms: doc.atoms(spec),
+    spec,
     wantText: o.output === 'both',
     charMode: spec.by === 'character' || spec.by === 'byte',
   };
@@ -45,7 +54,7 @@ export function fullResult(ctx: CutContext): SplitResult {
   const filtered = !!(filters.exclude || filters.stripTags || filters.stripComments);
   const result: SplitResult = { html: doc.html, truncated: false, total, kept: total };
   if (filtered || ctx.wantText) {
-    const r = render(doc.tokens, doc.decoded, undefined, undefined, filters);
+    const r = render(doc, undefined, undefined, filters);
     if (filtered) result.html = r.html;
     if (ctx.wantText) result.text = r.text;
   }
@@ -55,10 +64,10 @@ export function fullResult(ctx: CutContext): SplitResult {
 /** Keep atoms 0..k (k = -1 keeps none). */
 export function cutHead(ctx: CutContext, k: number): SplitResult {
   const { doc, atoms } = ctx;
-  const to = cutPos(atoms, k, !!ctx.spec.tag);
-  const r = render(doc.tokens, doc.decoded, undefined, to, ctx.filters);
+  const to = atoms.cut(k);
+  const r = render(doc, undefined, to, ctx.filters);
   let html = r.html;
-  if (!(ctx.smartEllipsis && to && atBlockEnd(doc.tokens, doc.decoded, to))) html += ctx.ellipsis;
+  if (!(ctx.smartEllipsis && to && atBlockEnd(doc, to))) html += ctx.ellipsis;
   html += ctx.suffix + r.closers;
   const result: SplitResult = { html, truncated: true, total: atoms.total, kept: k >= 0 ? atoms.cum[k] : 0 };
   if (ctx.wantText) result.text = r.text;
@@ -68,14 +77,14 @@ export function cutHead(ctx: CutContext, k: number): SplitResult {
 /** Keep atoms s..n-1. */
 export function cutTail(ctx: CutContext, s: number): SplitResult {
   const { doc, atoms } = ctx;
-  const from = startPos(atoms, s);
+  const from = atoms.start(s);
   const result: SplitResult = { html: ctx.ellipsis + ctx.suffix, truncated: true, total: atoms.total, kept: 0 };
   if (!from) {
     if (ctx.wantText) result.text = '';
     return result;
   }
-  const r = render(doc.tokens, doc.decoded, from, undefined, { ...ctx.filters, keepHidden: true });
-  result.html += r.html + r.closers;
+  const r = renderBalanced(doc, from, undefined, { ...ctx.filters, keepHidden: true });
+  result.html += r.html;
   result.kept = atoms.total - atoms.cumBefore(s);
   if (ctx.wantText) result.text = r.text;
   return result;
@@ -126,37 +135,19 @@ export function tailStart(ctx: CutContext, keep: number, preserveWords: SplitOpt
 export function fitOutput(ctx: CutContext, keep: number, max: number, fromEnd: boolean, preserveWords: SplitOptions['preserveWords']): SplitResult {
   const { atoms } = ctx;
   const n = atoms.n;
-  const none: SplitResult = { html: '', truncated: true, total: atoms.total, kept: 0 };
+  const fits = (r: SplitResult) => r.html.length <= max;
 
   if (fromEnd) {
-    let lo = Math.max(1, Math.min(n, tailStart(ctx, Math.min(keep, atoms.total), false)));
-    let hi = n;
-    if (cutTail(ctx, hi).html.length > max) return none;
-    while (lo < hi) {
-      const mid = (lo + hi) >> 1;
-      if (cutTail(ctx, mid).html.length <= max) hi = mid;
-      else lo = mid + 1;
-    }
-    let s = lo;
-    if (preserveWords) {
-      const adjusted = tailStart(ctx, atoms.total - atoms.cumBefore(s), preserveWords);
-      if (adjusted >= s) s = adjusted;
-    }
+    if (!fits(cutTail(ctx, n))) return { html: '', truncated: true, total: atoms.total, kept: 0 };
+    const lo = Math.max(1, Math.min(n, tailStart(ctx, Math.min(keep, atoms.total), false)));
+    let s = firstIndex(lo, n, i => fits(cutTail(ctx, i)));
+    if (preserveWords) s = Math.max(s, tailStart(ctx, atoms.total - atoms.cumBefore(s), preserveWords));
     return cutTail(ctx, s);
   }
 
-  let lo = -1;
-  let hi = Math.min(atoms.lastWithin(keep), n - 2);
-  if (cutHead(ctx, -1).html.length > max) return none;
-  while (lo < hi) {
-    const mid = (lo + hi + 1) >> 1;
-    if (cutHead(ctx, mid).html.length <= max) lo = mid;
-    else hi = mid - 1;
-  }
-  let k = lo;
-  if (preserveWords && k >= 0) {
-    const adjusted = headEnd(ctx, atoms.cum[k], preserveWords);
-    if (adjusted <= k) k = adjusted;
-  }
+  if (!fits(cutHead(ctx, -1))) return { html: '', truncated: true, total: atoms.total, kept: 0 };
+  const hi = Math.min(atoms.lastWithin(keep), n - 2);
+  let k = firstIndex(0, hi + 1, i => !fits(cutHead(ctx, i))) - 1;
+  if (preserveWords && k >= 0) k = Math.min(k, headEnd(ctx, atoms.cum[k], preserveWords));
   return cutHead(ctx, k);
 }

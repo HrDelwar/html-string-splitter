@@ -1,34 +1,10 @@
 import type { SnippetOptions } from '../types.js';
-import { endPos, startPos, toDoc, type HtmlInput } from '../engine/doc.js';
-import { cmpPos, render, type Pos } from '../engine/emit.js';
+import { toDoc, type HtmlInput } from '../engine/doc.js';
+import { renderBalanced } from '../engine/emit.js';
 import { PlainText } from '../engine/plain.js';
-import type { AtomList } from '../engine/scan.js';
-import { buildOpenTag } from '../engine/search.js';
+import { tagPair } from '../engine/search.js';
 import { resolveSpec } from '../engine/unit.js';
-
-/** First atom that ends after `p`. */
-function atomFrom(atoms: AtomList, p: Pos): number {
-  let lo = 0;
-  let hi = atoms.n - 1;
-  while (lo < hi) {
-    const mid = (lo + hi) >> 1;
-    if (cmpPos(endPos(atoms, mid), p.ti, p.off) > 0) hi = mid;
-    else lo = mid + 1;
-  }
-  return lo;
-}
-
-/** Last atom that starts before `p`. */
-function atomUntil(atoms: AtomList, p: Pos): number {
-  let lo = 0;
-  let hi = atoms.n - 1;
-  while (lo < hi) {
-    const mid = (lo + hi + 1) >> 1;
-    if (cmpPos(startPos(atoms, mid)!, p.ti, p.off) < 0) lo = mid;
-    else hi = mid - 1;
-  }
-  return lo;
-}
+import { cmpPos, firstIndex } from '../engine/util.js';
 
 /**
  * Build search-result excerpts around matches of `query`, with matches highlighted.
@@ -51,15 +27,18 @@ export function snippet(html: HtmlInput, query: string | RegExp, options?: Snipp
   if (matches.length === 0) return '';
 
   const atoms = doc.atoms(resolveSpec({ ...o, by: o.by ?? (o.measure ? undefined : 'word') }));
-  if (atoms.n === 0) return '';
+  const n = atoms.n;
+  if (n === 0) return '';
 
   const windows: [number, number][] = [];
-  for (const m of matches) {
-    const a = Math.max(0, atomFrom(atoms, m.mark.s) - radius);
-    const b = Math.min(atoms.n - 1, atomUntil(atoms, m.mark.e) + radius);
-    const last = windows[windows.length - 1];
-    if (last && a <= last[1] + 1) {
-      last[1] = Math.max(last[1], b);
+  for (const { mark } of matches) {
+    const first = Math.min(n - 1, firstIndex(0, n, i => cmpPos(atoms.end(i), mark.s) > 0));
+    const last = Math.max(0, firstIndex(0, n, i => cmpPos(atoms.start(i)!, mark.e) >= 0) - 1);
+    const a = Math.max(0, first - radius);
+    const b = Math.min(n - 1, last + radius);
+    const prev = windows[windows.length - 1];
+    if (prev && a <= prev[1] + 1) {
+      prev[1] = Math.max(prev[1], b);
     } else {
       if (windows.length === maxSnippets) break;
       windows.push([a, b]);
@@ -67,20 +46,17 @@ export function snippet(html: HtmlInput, query: string | RegExp, options?: Snipp
   }
 
   const hl = o.highlight ?? true;
-  const hlOpts = typeof hl === 'object' ? hl : {};
-  const tag = hlOpts.tag ?? 'mark';
-  const parts = windows.map(([a, b]) => {
-    const r = render(doc.tokens, doc.decoded, startPos(atoms, a), endPos(atoms, b), {
-      stripTags: o.stripTags,
-      escapeText: o.stripTags && !!hl,
-      marks: hl ? matches.map(m => m.mark) : undefined,
-      markOpen: buildOpenTag(tag, hlOpts.className, hlOpts.attributes),
-      markClose: `</${tag}>`,
-    });
-    return r.html + r.closers;
-  });
+  const [markOpen, markClose] = tagPair('mark', typeof hl === 'object' ? hl : undefined);
+  const emit = {
+    stripTags: o.stripTags,
+    escapeText: o.stripTags && !!hl,
+    marks: hl ? matches.map(m => m.mark) : undefined,
+    markOpen,
+    markClose,
+  };
+  const parts = windows.map(([a, b]) => renderBalanced(doc, atoms.start(a), atoms.end(b), emit).html);
 
   const lead = windows[0][0] > 0 ? ellipsis : '';
-  const trail = windows[windows.length - 1][1] < atoms.n - 1 ? ellipsis : '';
+  const trail = windows[windows.length - 1][1] < n - 1 ? ellipsis : '';
   return lead + parts.join(separator) + trail;
 }

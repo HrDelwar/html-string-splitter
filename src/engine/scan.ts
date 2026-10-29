@@ -1,14 +1,20 @@
-import type { Token } from '../types.js';
+import type { BoundaryLevel, Token } from '../types.js';
 import { TokenType } from '../types.js';
 import { COMPLEX_TEXT, getGraphemeSegmenter, getWordSegmenter, utf8Length } from '../parse/entities.js';
-import { ATOMIC_BLOCKS, BLOCK_ELEMENTS, HEADING_LEVEL, MEDIA_ELEMENTS, NON_VISIBLE_ELEMENTS } from './visibility.js';
+import {
+  ATOMIC_BLOCKS, BLOCK_ELEMENTS, HEADING_LEVEL, MEDIA_ELEMENTS, NON_VISIBLE_ELEMENTS,
+  isTagToken, trackDepth, updateNonVisibleDepth,
+} from './visibility.js';
 import type { UnitSpec } from './unit.js';
+import { firstIndex, type Pos } from './util.js';
 
 export const LVL_WORD = 1;
 export const LVL_SENTENCE = 2;
 export const LVL_BLOCK = 3;
 export const LVL_MASK = 3;
 export const WS_ATOM = 4;
+
+export const BOUNDARY_LEVEL: Record<BoundaryLevel, number> = { word: LVL_WORD, sentence: LVL_SENTENCE, block: LVL_BLOCK };
 
 export interface AtomSink {
   atom(sTi: number, sOff: number, eTi: number, eOff: number, weight: number, flags: number): void;
@@ -105,13 +111,12 @@ export class Scanner {
       this.text(ti, decoded);
       return;
     }
-    if (type !== TokenType.OpenTag && type !== TokenType.CloseTag && type !== TokenType.SelfClosingTag) return;
+    if (!isTagToken(tok)) return;
 
     const name = tok.tagName!;
     const exclude = this.spec.exclude;
-    if (exclude && exclude.has(name)) {
-      if (type === TokenType.OpenTag) this.exDepth++;
-      else if (type === TokenType.CloseTag) this.exDepth = Math.max(0, this.exDepth - 1);
+    if (exclude?.has(name)) {
+      this.exDepth = trackDepth(tok, exclude, this.exDepth);
       return;
     }
     if (this.exDepth > 0) return;
@@ -122,8 +127,7 @@ export class Scanner {
     }
 
     if (NON_VISIBLE_ELEMENTS.has(name)) {
-      if (type === TokenType.OpenTag) this.nvDepth++;
-      else if (type === TokenType.CloseTag) this.nvDepth = Math.max(0, this.nvDepth - 1);
+      this.nvDepth = updateNonVisibleDepth(tok, this.nvDepth);
       return;
     }
     if (this.nvDepth > 0) return;
@@ -394,6 +398,9 @@ export interface Heading {
 
 /** Atom index for one document and unit spec. */
 export class AtomList implements AtomSink {
+  /** Tag units cut right before the next match instead of after the last kept one. */
+  constructor(readonly tagMode = false) {}
+
   n = 0;
   total = 0;
   readonly sTi: number[] = [];
@@ -454,47 +461,37 @@ export class AtomList implements AtomSink {
 
   /** Index of the last atom whose cumulative weight is <= limit, or -1. */
   lastWithin(limit: number): number {
-    let lo = 0;
-    let hi = this.n - 1;
-    let found = -1;
-    while (lo <= hi) {
-      const mid = (lo + hi) >> 1;
-      if (this.cum[mid] <= limit) {
-        found = mid;
-        lo = mid + 1;
-      } else {
-        hi = mid - 1;
-      }
-    }
-    return found;
+    return firstIndex(0, this.n, i => this.cum[i] > limit) - 1;
   }
 
   /** Index of the first atom that starts at or after `units`. */
   firstFrom(units: number): number {
-    let lo = 0;
-    let hi = this.n;
-    while (lo < hi) {
-      const mid = (lo + hi) >> 1;
-      if (this.cumBefore(mid) >= units) hi = mid;
-      else lo = mid + 1;
-    }
-    return lo;
+    return firstIndex(0, this.n, i => this.cumBefore(i) >= units);
   }
 
   inHeading(i: number): boolean {
     const hs = this.headings;
-    let lo = 0;
-    let hi = hs.length - 1;
-    while (lo <= hi) {
-      const mid = (lo + hi) >> 1;
-      if (hs[mid].start <= i) {
-        if (i < hs[mid].end) return true;
-        lo = mid + 1;
-      } else {
-        hi = mid - 1;
-      }
-    }
-    return false;
+    const h = hs[firstIndex(0, hs.length, k => hs[k].start > i) - 1];
+    return !!h && i < h.end;
+  }
+
+  start(i: number): Pos | undefined {
+    return i < this.n ? { ti: this.sTi[i], off: this.sOff[i] } : undefined;
+  }
+
+  end(i: number): Pos {
+    return i >= 0 ? { ti: this.eTi[i], off: this.eOff[i] } : (this.start(0) ?? { ti: 0, off: 0 });
+  }
+
+  /** Where output stops when atoms 0..k are kept. */
+  cut(k: number): Pos | undefined {
+    if (k >= this.n - 1) return this.tagMode ? undefined : this.end(this.n - 1);
+    return this.tagMode ? this.start(k + 1) : this.end(k);
+  }
+
+  /** Render bounds for atoms a..b; undefined means the document edge. */
+  span(a: number, b: number): [Pos | undefined, Pos | undefined] {
+    return [a <= 0 ? undefined : this.start(a), b >= this.n - 1 ? undefined : this.cut(b)];
   }
 }
 

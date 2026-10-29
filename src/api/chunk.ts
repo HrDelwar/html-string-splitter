@@ -1,11 +1,10 @@
-import type { BoundaryLevel, ChunkOptions, ChunkResult } from '../types.js';
-import { cutPos, startPos, toDoc, type HtmlInput } from '../engine/doc.js';
-import { render, SkipCursor } from '../engine/emit.js';
+import type { ChunkOptions, ChunkResult } from '../types.js';
+import { toDoc, type HtmlInput } from '../engine/doc.js';
+import { render, renderBalanced, SkipCursor } from '../engine/emit.js';
 import type { AtomList, Heading } from '../engine/scan.js';
-import { LVL_BLOCK, LVL_SENTENCE, LVL_WORD } from '../engine/scan.js';
+import { BOUNDARY_LEVEL, LVL_SENTENCE, LVL_WORD } from '../engine/scan.js';
 import { resolveSpec } from '../engine/unit.js';
-
-const LEVELS: Record<BoundaryLevel, number> = { word: LVL_WORD, sentence: LVL_SENTENCE, block: LVL_BLOCK };
+import { isPositive } from '../engine/util.js';
 
 function chunkEnd(atoms: AtomList, a: number, size: number, level: number): number {
   const limit = atoms.cumBefore(a) + size;
@@ -61,31 +60,30 @@ export function chunk(html: HtmlInput, options: ChunkOptions): string[] | ChunkR
   const doc = toDoc(html);
   if (!doc) return [];
   const { size, overlap = 0, breakAt, meta, stripComments } = options;
-  if (typeof size !== 'number' || size <= 0 || !Number.isFinite(size)) return [];
+  if (!isPositive(size)) return [];
   if (overlap >= size) throw new Error('overlap must be less than size');
 
   const spec = resolveSpec(options);
   const atoms = doc.atoms(spec);
   if (atoms.total === 0) return [];
-  const level = breakAt ? LEVELS[breakAt] ?? 0 : 0;
+  const level = breakAt ? BOUNDARY_LEVEL[breakAt] ?? 0 : 0;
   const filters = { exclude: spec.exclude, stripComments };
   const trail = new HeadingTrail(atoms.headings);
   const results: ChunkResult[] = [];
 
   if (atoms.total <= size) {
     const filtered = !!(spec.exclude || stripComments);
-    const r = filtered || meta ? render(doc.tokens, doc.decoded, undefined, undefined, filters) : null;
+    const r = filtered || meta ? render(doc, undefined, undefined, filters) : null;
     results.push({ html: filtered ? r!.html : doc.html, text: r?.text ?? '', index: 0, start: 0, end: atoms.total, headings: trail.at(0) });
   } else {
     const cursor = new SkipCursor({ ...filters, keepHidden: true });
     let a = 0;
     while (a < atoms.n) {
       const b = chunkEnd(atoms, a, size, level);
-      const from = a === 0 ? undefined : startPos(atoms, a);
-      const to = b >= atoms.n - 1 ? undefined : cutPos(atoms, b, !!spec.tag);
-      const r = render(doc.tokens, doc.decoded, from, to, { ...filters, keepHidden: true }, cursor);
+      const [from, to] = atoms.span(a, b);
+      const r = renderBalanced(doc, from, to, { ...filters, keepHidden: true }, cursor);
       results.push({
-        html: r.html + r.closers,
+        html: r.html,
         text: r.text,
         index: results.length,
         start: atoms.cumBefore(a),

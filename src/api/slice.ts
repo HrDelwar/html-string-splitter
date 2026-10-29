@@ -1,6 +1,6 @@
 import type { SliceOptions } from '../types.js';
-import { cutPos, startPos, toDoc, type HtmlInput } from '../engine/doc.js';
-import { render } from '../engine/emit.js';
+import { toDoc, type HtmlInput } from '../engine/doc.js';
+import { renderBalanced } from '../engine/emit.js';
 import { resolveSpec } from '../engine/unit.js';
 
 export function slice(html: HtmlInput, options?: SliceOptions): string {
@@ -22,8 +22,6 @@ export function slice(html: HtmlInput, options?: SliceOptions): string {
   if (a > b) return '';
   if (a === 0 && b === atoms.n - 1 && !spec.exclude) return doc.html;
 
-  const from = a === 0 ? undefined : startPos(atoms, a);
-  const to = b === atoms.n - 1 ? undefined : cutPos(atoms, b, !!spec.tag);
-  const r = render(doc.tokens, doc.decoded, from, to, { exclude: spec.exclude, keepHidden: true });
-  return r.html + r.closers;
+  const [from, to] = atoms.span(a, b);
+  return renderBalanced(doc, from, to, { exclude: spec.exclude, keepHidden: true }).html;
 }

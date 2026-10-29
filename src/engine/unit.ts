@@ -1,4 +1,5 @@
 import type { SplitUnit, UnitOptions } from '../types.js';
+import { toTagSet } from './util.js';
 
 const UNIT_ALIASES: Record<string, SplitUnit> = {
   c: 'character', character: 'character',
@@ -43,7 +44,7 @@ export function resolveSpec(options: UnitOptions & { imageWeight?: number } | un
     locale: o.locale,
     measure: o.measure,
     imageWeight: tag || by === 'line' ? 0 : (o.imageWeight ?? 0),
-    exclude: o.exclude && o.exclude.length ? new Set(o.exclude.map(t => t.toLowerCase())) : undefined,
+    exclude: o.exclude?.length ? toTagSet(o.exclude) : undefined,
   };
 }
 

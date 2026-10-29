@@ -1,10 +1,9 @@
-import type { BoundaryLevel, ExcerptOptions, SplitResult } from '../types.js';
+import type { ExcerptOptions, SplitResult } from '../types.js';
 import { toDoc, type HtmlInput } from '../engine/doc.js';
 import { cutHead, fullResult, makeCutContext } from '../engine/cut.js';
-import { LVL_BLOCK, LVL_SENTENCE, LVL_WORD } from '../engine/scan.js';
+import { BOUNDARY_LEVEL } from '../engine/scan.js';
 import { resolveSpec } from '../engine/unit.js';
-
-const LEVELS: Record<BoundaryLevel, number> = { word: LVL_WORD, sentence: LVL_SENTENCE, block: LVL_BLOCK };
+import { isNonNegative } from '../engine/util.js';
 
 /**
  * Truncate to between `min` and `max` units, ending at the most natural boundary available.
@@ -16,7 +15,7 @@ const LEVELS: Record<BoundaryLevel, number> = { word: LVL_WORD, sentence: LVL_SE
 export function excerpt(html: HtmlInput, options: ExcerptOptions): SplitResult {
   const doc = toDoc(html);
   const { max, prefer = ['block', 'sentence', 'word'] } = options;
-  if (!doc || typeof max !== 'number' || !(max >= 0)) return { html: '', truncated: false, total: 0, kept: 0 };
+  if (!doc || !isNonNegative(max)) return { html: '', truncated: false, total: 0, kept: 0 };
 
   const ctx = makeCutContext(doc, resolveSpec(options), { smartEllipsis: true, ...options });
   const { atoms } = ctx;
@@ -27,7 +26,7 @@ export function excerpt(html: HtmlInput, options: ExcerptOptions): SplitResult {
   const lo = atoms.firstFrom(min) - 1;
 
   for (const name of prefer) {
-    const level = LEVELS[name];
+    const level = BOUNDARY_LEVEL[name];
     if (!level) continue;
     for (let j = hi; j >= Math.max(lo, 0); j--) {
       if (atoms.cum[j] < min) break;

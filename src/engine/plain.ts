@@ -1,8 +1,16 @@
 import { TokenType } from '../types.js';
 import type { DocCore } from './doc.js';
-import type { Mark, Pos } from './emit.js';
+import type { Mark } from './emit.js';
+import { firstIndex, type Pos } from './util.js';
 import { updateNonVisibleDepth } from './visibility.js';
 import { buildRegex } from './search.js';
+
+export interface TextMatch {
+  start: number;
+  end: number;
+  text: string;
+  mark: Mark;
+}
 
 /** Visible text of a document with a map back to token positions. */
 export class PlainText {
@@ -25,23 +33,12 @@ export class PlainText {
   /** Token position for a plain-text offset; `end` resolves boundaries to the earlier token. */
   pos(offset: number, end = false): Pos {
     const starts = this.segStart;
-    let lo = 0;
-    let hi = starts.length - 1;
-    let i = 0;
-    while (lo <= hi) {
-      const mid = (lo + hi) >> 1;
-      if (end ? starts[mid] < offset : starts[mid] <= offset) {
-        i = mid;
-        lo = mid + 1;
-      } else {
-        hi = mid - 1;
-      }
-    }
+    const i = Math.max(0, firstIndex(0, starts.length, k => (end ? starts[k] >= offset : starts[k] > offset)) - 1);
     return { ti: this.segTi[i], off: offset - starts[i] };
   }
 
-  matches(query: string | RegExp): { start: number; end: number; text: string; mark: Mark }[] {
-    const out: { start: number; end: number; text: string; mark: Mark }[] = [];
+  matches(query: string | RegExp): TextMatch[] {
+    const out: TextMatch[] = [];
     if (!this.text) return out;
     const re = buildRegex(query);
     let m: RegExpExecArray | null;

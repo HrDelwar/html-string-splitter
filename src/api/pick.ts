@@ -1,7 +1,7 @@
 import type { PickOptions, PickResult } from '../types.js';
 import { TokenType } from '../types.js';
 import { toDoc, type DocCore, type HtmlInput } from '../engine/doc.js';
-import { render } from '../engine/emit.js';
+import { renderBalanced } from '../engine/emit.js';
 import { PlainText } from '../engine/plain.js';
 
 export function pick(html: HtmlInput, options: PickOptions): PickResult[] {
@@ -53,8 +53,10 @@ function pickByTag(doc: DocCore, tagName: string): PickResult[] {
 
 function pickByText(doc: DocCore, query: string | RegExp): PickResult[] {
   const plain = new PlainText(doc);
-  return plain.matches(query).map(m => {
-    const r = render(doc.tokens, doc.decoded, m.mark.s, m.mark.e, {});
-    return { html: r.html + r.closers, text: m.text, start: m.start, end: m.end };
-  });
+  return plain.matches(query).map(m => ({
+    html: renderBalanced(doc, m.mark.s, m.mark.e, {}).html,
+    text: m.text,
+    start: m.start,
+    end: m.end,
+  }));
 }

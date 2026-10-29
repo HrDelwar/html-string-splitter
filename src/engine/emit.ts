@@ -1,11 +1,15 @@
 import type { Token } from '../types.js';
 import { TokenType } from '../types.js';
 import { escapeHtml, rawOffset } from '../parse/entities.js';
-import { BLOCK_ELEMENTS, HIDDEN_ELEMENTS, NON_VISIBLE_ELEMENTS } from './visibility.js';
+import { BLOCK_ELEMENTS, HIDDEN_ELEMENTS, trackDepth, updateNonVisibleDepth } from './visibility.js';
+import { cmpPos, isBlank, type Pos } from './util.js';
 
-export interface Pos {
-  ti: number;
-  off: number;
+export type { Pos } from './util.js';
+
+/** Anything holding tokens with their decoded text, e.g. a parsed document. */
+export interface TokenSource {
+  tokens: Token[];
+  decoded: string[];
 }
 
 export interface Mark {
@@ -43,10 +47,6 @@ const CLOSES_P = new Set([
   'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header',
   'hr', 'main', 'nav', 'ol', 'p', 'pre', 'section', 'summary', 'table', 'ul',
 ]);
-
-export function cmpPos(a: Pos, ti: number, off: number): number {
-  return a.ti !== ti ? a.ti - ti : a.off - off;
-}
 
 export class Emitter {
   out = '';
@@ -107,22 +107,13 @@ export class Emitter {
 
   emit(tok: Token, ti: number, decoded: string, a: number, b: number): void {
     if (this.o.breaks) this.breaksAt(ti, 0);
-    const type = tok.type;
     if (tok.tagName && this.excluded(tok)) return;
     if (this.exDepth > 0) return;
 
-    switch (type) {
+    switch (tok.type) {
       case TokenType.OpenTag:
-        if (NON_VISIBLE_ELEMENTS.has(tok.tagName!)) this.nvDepth++;
-        if (this.stripped(tok.tagName!)) return;
-        this.push(tok.tagName!, tok.raw);
-        this.out += tok.raw;
-        return;
       case TokenType.CloseTag:
-        if (NON_VISIBLE_ELEMENTS.has(tok.tagName!)) this.nvDepth = Math.max(0, this.nvDepth - 1);
-        if (this.stripped(tok.tagName!)) return;
-        this.pop(tok.tagName!);
-        this.out += tok.raw;
+        if (this.track(tok)) this.out += tok.raw;
         return;
       case TokenType.SelfClosingTag:
         if (!this.stripped(tok.tagName!)) this.out += tok.raw;
@@ -168,10 +159,11 @@ export class Emitter {
       }
 
       if (marks) {
-        while (this.mi < marks.length && cmpPos(marks[this.mi].e, ti, p) <= 0) this.mi++;
+        const here = { ti, off: p };
+        while (this.mi < marks.length && cmpPos(marks[this.mi].e, here) <= 0) this.mi++;
         const m = marks[this.mi];
         if (m) {
-          if (cmpPos(m.s, ti, p) <= 0) {
+          if (cmpPos(m.s, here) <= 0) {
             marked = true;
             if (m.e.ti === ti && m.e.off < q) q = m.e.off;
           } else if (m.s.ti === ti && m.s.off < q) {
@@ -196,7 +188,8 @@ export class Emitter {
 
   private breaksAt(ti: number, off: number): void {
     const breaks = this.o.breaks!;
-    while (this.bi < breaks.length && cmpPos(breaks[this.bi], ti, off) <= 0) {
+    const here = { ti, off };
+    while (this.bi < breaks.length && cmpPos(breaks[this.bi], here) <= 0) {
       this.bi++;
       this.out += this.closers() + this.o.breakClose! + this.o.breakOpen! + this.reopen();
     }
@@ -204,9 +197,8 @@ export class Emitter {
 
   private excluded(tok: Token): boolean {
     const exclude = this.o.exclude;
-    if (!exclude || !exclude.has(tok.tagName!)) return false;
-    if (tok.type === TokenType.OpenTag) this.exDepth++;
-    else if (tok.type === TokenType.CloseTag) this.exDepth = Math.max(0, this.exDepth - 1);
+    if (!exclude?.has(tok.tagName!)) return false;
+    this.exDepth = trackDepth(tok, exclude, this.exDepth);
     return true;
   }
 
@@ -215,14 +207,15 @@ export class Emitter {
     return !this.o.selectiveTags || this.o.selectiveTags.has(name);
   }
 
-  private track(tok: Token): void {
-    if (tok.type === TokenType.OpenTag) {
-      if (NON_VISIBLE_ELEMENTS.has(tok.tagName!)) this.nvDepth++;
-      if (!this.stripped(tok.tagName!)) this.push(tok.tagName!, tok.raw);
-    } else if (tok.type === TokenType.CloseTag) {
-      if (NON_VISIBLE_ELEMENTS.has(tok.tagName!)) this.nvDepth = Math.max(0, this.nvDepth - 1);
-      if (!this.stripped(tok.tagName!)) this.pop(tok.tagName!);
-    }
+  /** Update the open-element stack for open/close tags; false when the tag is stripped. */
+  private track(tok: Token): boolean {
+    if (tok.type !== TokenType.OpenTag && tok.type !== TokenType.CloseTag) return false;
+    const name = tok.tagName!;
+    this.nvDepth = updateNonVisibleDepth(tok, this.nvDepth);
+    if (this.stripped(name)) return false;
+    if (tok.type === TokenType.OpenTag) this.push(name, tok.raw);
+    else this.pop(name);
+    return true;
   }
 
   private reopen(): string {
@@ -272,17 +265,17 @@ export interface RenderResult {
 }
 
 /**
- * Render tokens between two positions with balanced tags.
+ * Render tokens between two positions, reopening ancestors at `from`.
  * `from`/`to` of undefined mean the start/end of the document.
  */
 export function render(
-  tokens: Token[],
-  decoded: string[],
+  src: TokenSource,
   from: Pos | undefined,
   to: Pos | undefined,
   o: EmitOptions,
   cursor?: SkipCursor,
 ): RenderResult {
+  const { tokens, decoded } = src;
   const startTi = from ? from.ti : 0;
   let em: Emitter;
   if (cursor) {
@@ -304,6 +297,18 @@ export function render(
   return { html: em.out, text: em.text, closers: em.closers() };
 }
 
+/** `render()` with the still-open elements closed. */
+export function renderBalanced(
+  src: TokenSource,
+  from: Pos | undefined,
+  to: Pos | undefined,
+  o: EmitOptions,
+  cursor?: SkipCursor,
+): { html: string; text: string } {
+  const r = render(src, from, to, o, cursor);
+  return { html: r.html + r.closers, text: r.text };
+}
+
 /** Forward-only structure tracker so repeated renders don't rescan the document prefix. */
 export class SkipCursor {
   private readonly em: Emitter;
@@ -323,18 +328,29 @@ export class SkipCursor {
   }
 }
 
-/** True when nothing visible follows `to` before a block element closes. */
-export function atBlockEnd(tokens: Token[], decoded: string[], to: Pos): boolean {
-  let ti = to.ti;
-  if (tokens[ti]?.type === TokenType.Text) {
-    if (/\S/.test(decoded[ti].slice(to.off))) return false;
-    ti++;
-  }
-  for (; ti < tokens.length; ti++) {
-    const t = tokens[ti];
+/**
+ * True when a block element closes before any visible content in the upcoming tokens.
+ *
+ * @param count Number of upcoming tokens
+ * @param tokenAt Token at upcoming index i
+ * @param textAt Remaining decoded text of the token at upcoming index i
+ * @return Whether an ellipsis would sit at a clean block end
+ */
+export function closesBlockNext(count: number, tokenAt: (i: number) => Token, textAt: (i: number) => string): boolean {
+  for (let i = 0; i < count; i++) {
+    const t = tokenAt(i);
     if (t.type === TokenType.CloseTag && BLOCK_ELEMENTS.has(t.tagName!)) return true;
-    if (t.type === TokenType.Text && /\S/.test(decoded[ti])) return false;
     if (t.type === TokenType.OpenTag) return false;
+    if (t.type === TokenType.Text && !isBlank(textAt(i))) return false;
   }
   return false;
+}
+
+export function atBlockEnd(src: TokenSource, to: Pos): boolean {
+  const { tokens, decoded } = src;
+  return closesBlockNext(
+    tokens.length - to.ti,
+    i => tokens[to.ti + i],
+    i => (i === 0 ? decoded[to.ti].slice(to.off) : decoded[to.ti + i]),
+  );
 }

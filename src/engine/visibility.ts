@@ -22,12 +22,18 @@ export const ATOMIC_BLOCKS = new Set(['pre', 'table']);
 
 export const HEADING_LEVEL: Record<string, number> = { h1: 1, h2: 2, h3: 3, h4: 4, h5: 5, h6: 6 };
 
-export function updateNonVisibleDepth(token: Token, depth: number): number {
-  if (token.type === TokenType.OpenTag && NON_VISIBLE_ELEMENTS.has(token.tagName!)) {
-    return depth + 1;
-  }
-  if (token.type === TokenType.CloseTag && NON_VISIBLE_ELEMENTS.has(token.tagName!)) {
-    return Math.max(0, depth - 1);
-  }
+export function isTagToken(token: Token): boolean {
+  return token.type === TokenType.OpenTag || token.type === TokenType.CloseTag || token.type === TokenType.SelfClosingTag;
+}
+
+/** Nesting depth after `token`, counting only elements named in `names`. */
+export function trackDepth(token: Token, names: Set<string>, depth: number): number {
+  if (!token.tagName || !names.has(token.tagName)) return depth;
+  if (token.type === TokenType.OpenTag) return depth + 1;
+  if (token.type === TokenType.CloseTag) return Math.max(0, depth - 1);
   return depth;
+}
+
+export function updateNonVisibleDepth(token: Token, depth: number): number {
+  return trackDepth(token, NON_VISIBLE_ELEMENTS, depth);
 }

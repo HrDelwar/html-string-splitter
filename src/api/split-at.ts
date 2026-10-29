@@ -1,13 +1,14 @@
 import type { SplitAtOptions } from '../types.js';
-import { cutPos, startPos, toDoc, type HtmlInput } from '../engine/doc.js';
-import { render } from '../engine/emit.js';
+import { toDoc, type HtmlInput } from '../engine/doc.js';
+import { renderBalanced } from '../engine/emit.js';
 import { resolveSpec } from '../engine/unit.js';
+import { isNonNegative } from '../engine/util.js';
 
 export function splitAt(html: HtmlInput, options: SplitAtOptions): [string, string] {
   const doc = toDoc(html);
   if (!doc) return ['', ''];
   const at = options.at;
-  if (typeof at !== 'number' || at < 0 || !Number.isFinite(at)) return ['', doc.html];
+  if (!isNonNegative(at)) return ['', doc.html];
 
   const spec = resolveSpec(options);
   const atoms = doc.atoms(spec);
@@ -16,7 +17,7 @@ export function splitAt(html: HtmlInput, options: SplitAtOptions): [string, stri
 
   const k = atoms.lastWithin(at);
   const filters = { exclude: spec.exclude };
-  const before = render(doc.tokens, doc.decoded, undefined, cutPos(atoms, k, !!spec.tag), filters);
-  const after = render(doc.tokens, doc.decoded, startPos(atoms, k + 1), undefined, { ...filters, keepHidden: true });
-  return [before.html + before.closers, after.html + after.closers];
+  const before = renderBalanced(doc, undefined, atoms.cut(k), filters);
+  const after = renderBalanced(doc, atoms.start(k + 1), undefined, { ...filters, keepHidden: true });
+  return [before.html, after.html];
 }
