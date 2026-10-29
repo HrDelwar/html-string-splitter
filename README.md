@@ -1,6 +1,6 @@
 # html-string-splitter
 
-> Split HTML strings by character, word, sentence, line, or HTML tag — while preserving valid HTML structure.
+> Split, truncate, chunk and stream HTML by character, word, sentence, line, byte, token or tag — while preserving valid HTML structure.
 
 [![npm version](https://img.shields.io/npm/v/html-string-splitter.svg)](https://www.npmjs.com/package/html-string-splitter)
 [![license](https://img.shields.io/npm/l/html-string-splitter.svg)](https://github.com/HrDelwar/html-string-splitter/blob/master/LICENSE)
@@ -19,7 +19,9 @@ clip('<p>Hello <strong>world</strong></p>', { keep: 7, by: 'c' })
 // '<p>Hello <strong>w...</strong></p>'  — properly closed
 ```
 
-**Zero dependencies. TypeScript. ESM + CJS. Emoji-safe. Entity-aware.**
+**Zero dependencies. TypeScript. ESM + CJS. Emoji-safe. Entity-aware. Streaming.**
+
+Counts text the way a browser renders it: `un<b>believ</b>able` is one word, a sentence can span tags, and escaped text stays escaped.
 
 ## Installation
 
@@ -83,6 +85,46 @@ const pages = chunk(articleHtml, { size: 100, by: 'w' });
 // pages[1] = next 100 words (valid HTML)
 ```
 
+### Fit an LLM token budget or a DB column
+```ts
+clip(html, { keep: 512, measure: text => encode(text).length });  // tokens
+clip(html, { keep: 160, by: 'byte' });                            // UTF-8 bytes
+clip(html, { maxOutputLength: 2000 });                            // final string, markup included
+```
+
+### Chunk for RAG
+```ts
+chunk(html, { size: 300, by: 'w', breakAt: 'block', overlap: 30, meta: true });
+// [{ html, text, index, start, end, headings: ['Guide', 'Install'] }, ...]
+```
+
+### Natural excerpts and search snippets
+```ts
+import { excerpt, snippet } from 'html-string-splitter';
+
+excerpt(html, { min: 120, max: 200 });     // ends at a paragraph or sentence when possible
+snippet(html, 'install', { radius: 8 });   // 8 words each side, match in <mark>
+```
+
+### Stream an LLM response
+```ts
+import { splitStream } from 'html-string-splitter';
+
+response.body
+  .pipeThrough(new TextDecoderStream())
+  .pipeThrough(splitStream({ keep: 200, by: 'w' }));  // stops upstream at the limit
+```
+
+### Parse once, run many operations
+```ts
+import { parse } from 'html-string-splitter';
+
+const doc = parse(html);
+doc.count({ by: 'w' });
+doc.clip({ keep: 50, by: 'w' });
+doc.summary().readingTime;
+```
+
 ### Split by HTML tag
 ```ts
 // Keep first 3 paragraphs
@@ -107,7 +149,9 @@ count(html, { by: 'img' });
 | [`text(html, options?)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/text.md) | `string` | Extract plain text |
 | [`splitAt(html, options)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/split.md#splitat) | `[string, string]` | Split into two parts |
 | [`slice(html, options?)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/split.md#slice) | `string` | Extract a range (like `String.slice`) |
-| [`chunk(html, options)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/chunk.md) | `string[]` | Split into equal parts |
+| [`chunk(html, options)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/chunk.md) | `string[]` \| [`ChunkResult[]`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/chunk.md#chunk-metadata) | Split into parts, by size and structure |
+| [`excerpt(html, options)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/excerpt.md) | [`SplitResult`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/split.md#splitresult) | Truncate within a range at a natural boundary |
+| [`snippet(html, query)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/excerpt.md#snippet) | `string` | Search-result excerpt around matches |
 
 ### Advanced API
 
@@ -117,6 +161,9 @@ count(html, { by: 'img' });
 | [`pick(html, options)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/pick.md) | [`PickResult[]`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/pick.md#pickresult) | Extract pieces by text or tag |
 | [`highlight(html, query)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/pick.md#highlight) | `string` | Wrap text matches in a tag |
 | [`wrap(html, options)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/wrap.md) | `string` | Wrap content at intervals (by chars, words, or tags) |
+| [`parse(html)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/parse.md) | `HtmlDocument` | Parse once, call any method without re-tokenizing |
+| [`createSplitter(options)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/stream.md) | `StreamSplitter` | Truncate HTML incrementally |
+| [`splitStream(options)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/stream.md#splitstreamoptions--transformstreamstring-string) | `TransformStream` | Web Streams truncation |
 | [`tokenize(html)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/tokenize.md) | [`Token[]`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/tokenize.md#token-interface) | Low-level HTML tokenizer |
 
 ---
@@ -131,7 +178,10 @@ The `by` parameter accepts:
 | `'word'` | `'w'` | `clip(html, { keep: 20, by: 'w' })` |
 | `'sentence'` | `'s'` | `clip(html, { keep: 3, by: 's' })` |
 | `'line'` | `'l'` | `clip(html, { keep: 5, by: 'l' })` |
+| `'byte'` | — | `clip(html, { keep: 160, by: 'byte' })` |
 | Any tag name | — | `clip(html, { keep: 3, by: 'p' })` |
+
+Any unit can be weighted with `measure`, and `locale` enables dictionary word splitting for Chinese, Japanese, Thai and similar languages.
 
 ---
 
@@ -163,6 +213,9 @@ split(html, {
   selectiveTags: ['span'],     // only strip these tags (with stripTags)
   imageWeight: 5,              // character cost for <img>, <video>, etc.
   wordPattern: /[\p{Han}]|\w+/gu, // custom word boundaries (CJK)
+  locale: 'ja',                // Intl.Segmenter word splitting
+  measure: countTokens,        // weight per unit (e.g. LLM tokens)
+  maxOutputLength: 500,        // cap the final string, markup included
   output: 'both',              // return html + text in one pass
 });
 ```
@@ -174,7 +227,8 @@ chunk(html, {
   size: 100,           // units per chunk (required)
   by: 'w',             // split unit
   overlap: 20,         // shared units between chunks (for RAG/LLM)
-  breakAt: 'word',     // don't cut mid-word
+  breakAt: 'block',    // end at 'block' | 'sentence' | 'word' boundaries
+  meta: true,          // return { html, text, start, end, headings }
 });
 ```
 
@@ -191,7 +245,7 @@ const { clip, split, count } = require('html-string-splitter');
 ## TypeScript
 
 ```ts
-import type { SplitOptions, SplitResult, ChunkOptions, PickOptions, HighlightOptions } from 'html-string-splitter';
+import type { SplitOptions, SplitResult, ChunkOptions, ChunkResult, HtmlInput, StreamOptions } from 'html-string-splitter';
 ```
 
 ---
@@ -200,18 +254,21 @@ import type { SplitOptions, SplitResult, ChunkOptions, PickOptions, HighlightOpt
 
 **Guides:**
 - [Split & Clip](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/split.md) — Truncation, splitAt, slice
-- [Chunk](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/chunk.md) — Pagination with overlap and breakAt
+- [Chunk](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/chunk.md) — Pagination and RAG chunking with overlap, boundaries and metadata
+- [Excerpt & Snippet](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/excerpt.md) — Natural-boundary excerpts and search snippets
+- [Streaming](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/stream.md) — Truncate HTML as it arrives
 - [Count & Summary](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/count.md) — Counting and statistics
 - [Text Extraction](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/text.md) — Plain text and output modes
 
 **Advanced:**
 - [Pick & Highlight](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/pick.md) — Extract pieces and highlight matches
 - [Wrap](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/wrap.md) — Wrap by chars, words, or tags
-- [Tokenize](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/tokenize.md) — Low-level tokenizer API
+- [Parsed Documents](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/parse.md) — Parse once, reuse everywhere
+- [Tokenize](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/tokenize.md) — Low-level and incremental tokenizer API
 
 **Reference:**
 - [Options Reference](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/options.md) — All options in detail
-- [Migration from v1](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/migration.md) — Upgrade guide
+- [Migration](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/migration.md) — Upgrading from v2 or v1
 
 ---
 

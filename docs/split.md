@@ -150,7 +150,7 @@ interface SplitResult {
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `keep` | `number` | — | **(required)** Units to keep |
+| `keep` | `number` | — | Units to keep (required unless `maxOutputLength` is set) |
 | `by` | [`SplitUnit`](https://github.com/HrDelwar/html-string-splitter#split-units) | `'c'` | What to count |
 | `ellipsis` | `string` | `'...'` / `''` | Appended at truncation point |
 | `suffix` | `string` | `''` | HTML after ellipsis |
@@ -164,6 +164,9 @@ interface SplitResult {
 | [`wordPattern`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/options.md#wordpattern) | `RegExp` | — | Custom word boundary regex |
 | [`output`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/options.md#output) | `'html' \| 'text' \| 'both'` | `'html'` | Output format |
 | `from` | `'start' \| 'end'` | `'start'` | Direction |
+| [`maxOutputLength`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/options.md#maxoutputlength) | `number` | — | Max length of the returned string, markup included |
+| [`measure`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/options.md#measure) | `(text) => number` | — | Custom weight per unit (e.g. LLM tokens) |
+| [`locale`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/options.md#locale) | `string` | — | `Intl.Segmenter` word splitting |
 
 See [Options Reference](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/options.md) for detailed explanations of each option.
 
@@ -205,6 +208,7 @@ splitAt('<p>Hello</p>', { at: 99, by: 'c' }); // ['<p>Hello</p>', '']
 |--------|------|---------|
 | `at` | `number` | — **(required)** |
 | `by` | [`SplitUnit`](https://github.com/HrDelwar/html-string-splitter#split-units) | `'c'` |
+| `measure`, `locale`, `wordPattern`, `exclude` | see [Options](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/options.md) | — |
 
 ---
 
@@ -242,3 +246,4 @@ slice(
 | `start` | `number` | `0` |
 | `end` | `number` | total |
 | `by` | [`SplitUnit`](https://github.com/HrDelwar/html-string-splitter#split-units) | `'c'` |
+| `measure`, `locale`, `wordPattern`, `exclude` | see [Options](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/options.md) | — |

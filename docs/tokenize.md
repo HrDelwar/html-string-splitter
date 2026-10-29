@@ -56,6 +56,18 @@ tokenize('<a href="page.html" title="Click > here">Link</a>');
 //   { type: 1, raw: '</a>', tagName: 'a' },
 // ]
 
+// Doctype, processing instructions and CDATA
+tokenize('<!DOCTYPE html><p>a</p>');
+// [
+//   { type: 6, raw: '<!DOCTYPE html>' },               // Directive
+//   { type: 0, raw: '<p>', tagName: 'p' },
+//   ...
+// ]
+
+// A bare "<" is text, not a tag
+tokenize('a < b');
+// [ { type: 3, raw: 'a < b', content: 'a < b' } ]
+
 // Plain text (no HTML)
 tokenize('Just plain text');
 // [
@@ -76,13 +88,24 @@ tokenize('');
 | `2` | `SelfClosingTag` | `<br>`, `<img>`, `<hr/>` | `tagName`, `attributes` |
 | `3` | `Text` | Plain text content | `content` |
 | `4` | `Comment` | `<!-- comment -->` | — |
-| `5` | `RawContent` | Inside `<script>`/`<style>` | — |
+| `5` | `RawContent` | Inside `<script>`, `<style>`, `<noscript>`, `<iframe>`, ... | — |
+| `6` | `Directive` | `<!DOCTYPE>`, `<?xml ?>`, `<![CDATA[ ]]>` | — |
+
+`<textarea>` and `<title>` content is a `Text` token: entities are decoded but tags inside are not parsed.
+
+`TokenType` is exported as a runtime object, so you can compare against names:
+
+```ts
+import { tokenize, TokenType } from 'html-string-splitter';
+
+tokenize(html).filter(t => t.type === TokenType.OpenTag && t.tagName === 'a');
+```
 
 ### Token Interface
 
 ```ts
 interface Token {
-  type: TokenType;     // 0-5
+  type: TokenType;     // 0-6
   raw: string;         // Original HTML source (always present)
   tagName?: string;    // Lowercase tag name (for tag tokens)
   attributes?: string; // Raw attribute string (for open/self-closing tags)
@@ -98,10 +121,11 @@ const tokens = tokenize(html);
 const links = tokens.filter(t => t.type === 0 && t.tagName === 'a');
 ```
 
-**Pre-tokenize once, use many times** — avoid duplicate parsing:
+**Parse once, use many times** — use [`parse()`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/parse.md) to run several operations without re-tokenizing:
 ```ts
-const tokens = tokenize(html);
-// Pass tokens to multiple operations without re-parsing
+const doc = parse(html);
+doc.count({ by: 'w' });
+doc.clip({ keep: 50, by: 'w' });
 ```
 
 **Build custom transformers** — modify tokens and rebuild HTML:
@@ -112,3 +136,18 @@ const output = tokens
   .map(t => t.raw)
   .join('');
 ```
+
+## `Tokenizer` — incremental tokenizing
+
+For input that arrives in pieces. `write()` returns the tokens that are complete; anything unfinished (a half tag, a partial entity, an open `<script>`) waits for the next chunk. `end()` flushes the rest.
+
+```ts
+import { Tokenizer } from 'html-string-splitter';
+
+const t = new Tokenizer();
+t.write('<p>a &am');  // [{ type: 0, raw: '<p>', ... }, { type: 3, raw: 'a ', ... }]
+t.write('p; b</p>');  // [{ type: 3, raw: '&amp; b', ... }, { type: 1, raw: '</p>', ... }]
+t.end();              // []
+```
+
+The tokens joined back together always equal the input, whatever the chunk boundaries. [Streaming](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/stream.md) is built on this.

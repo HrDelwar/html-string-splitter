@@ -2,12 +2,14 @@
 
 All options available for `split()` and `clip()`. Start with the basic options — most use cases only need `keep`, `by`, and maybe `ellipsis`.
 
+The unit options (`by`, `measure`, `locale`, `wordPattern`, `exclude`) work the same in every function: `count`, `chunk`, `splitAt`, `slice`, `wrap`, `excerpt`, `snippet` and the streaming API.
+
 ---
 
 ## Basic Options
 
-### `keep` (required)
-Number of units to keep from the content.
+### `keep`
+Number of units to keep from the content. Required unless [`maxOutputLength`](#maxoutputlength) is set.
 
 ```ts
 split(html, { keep: 10 });  // keep first 10 characters
@@ -21,8 +23,11 @@ What to split by. Default: `'character'`.
 | `'character'` | `'c'` | Grapheme clusters (emoji-safe) |
 | `'word'` | `'w'` | Whitespace-separated words |
 | `'sentence'` | `'s'` | Sentence boundaries (`.!?`) |
-| `'line'` | `'l'` | Block elements + `<br>` |
+| `'line'` | `'l'` | Visual lines: content between blocks, `<br>` and `<hr>` |
+| `'byte'` | — | UTF-8 bytes of the visible text, never splits a character |
 | Any tag name | — | e.g. `'p'`, `'li'`, `'img'` |
+
+Words and sentences are counted the way they render: `un<b>believ</b>able` is one word, and a sentence can span inline tags. Block elements always end a word and a sentence.
 
 ```ts
 split(html, { keep: 5, by: 'w' });     // 5 words
@@ -39,9 +44,11 @@ Direction of truncation. Default: `'start'`.
 split(html, { keep: 5, by: 'w', from: 'start' });
 
 // Keep last 5 words
-split(html, { keep: 5, by: 'w', from: 'end' });
-// '...<p>last five words here</p>'
+clip('<p>Keep only the last five words here</p>', { keep: 5, by: 'w', from: 'end' });
+// '...<p>the last five words here</p>'
 ```
+
+All other options apply in both directions.
 
 ### `stripTags`
 When `true`, removes all HTML tags from output, returning plain text. Default: `false`.
@@ -160,6 +167,48 @@ split('<p>Hello你好World世界</p>', {
 // Matches: ["Hello", "你", "好", "World", "世", "界"] → keeps first 3
 ```
 
+### `locale`
+Split words with `Intl.Segmenter` for the given locale. Use it for languages written without spaces (Chinese, Japanese, Thai, Khmer, ...).
+
+```ts
+count('<p>你好世界</p>', { by: 'w', locale: 'zh' });  // 2 (你好 / 世界)
+
+clip('<p>私は日本語を勉強しています</p>', { keep: 3, by: 'w', locale: 'ja' });
+// '<p>私は日本語...</p>'
+```
+
+Punctuation is not counted as a word in this mode. Latin words split by inline tags are still joined.
+
+---
+
+## Budgets
+
+### `measure`
+Give each unit a custom weight. `keep` then limits the total weight instead of the count. Defaults `by` to `'word'`.
+
+```ts
+const tokens = (text: string) => Math.ceil(text.length / 4);  // or a real tokenizer
+
+split('<p>Tokenization is surprisingly expensive</p>', { keep: 5, measure: tokens });
+// { html: '<p>Tokenization is...</p>', total: 10, kept: 4 }
+```
+
+Use it to fit LLM token budgets, pixel widths (`ctx.measureText`), or any cost model. It works with `count()`, `chunk()` and the other functions too.
+
+### `maxOutputLength`
+Limit the length of the **returned string**, markup included: tags, ellipsis, suffix and the closing tags the library adds. Use it when the result must fit a database column or an API field.
+
+```ts
+const html = '<p>Hello <strong>beautiful</strong> world</p>';
+
+clip(html, { maxOutputLength: 36 });  // '<p>Hello <strong>bea...</strong></p>'  (36 chars)
+clip(html, { maxOutputLength: 32 });  // '<p>Hello ...</p>'
+```
+
+- Can be combined with `keep`; whichever limit is tighter wins.
+- Respects `preserveWords`, `suffix`, `stripTags` and `from: 'end'`.
+- Returns `''` if not even the ellipsis and suffix fit.
+
 ---
 
 ## Tag Handling
@@ -246,12 +295,12 @@ Character cost assigned to media elements (`<img>`, `<svg>`, `<video>`, `<audio>
 ```ts
 // Without imageWeight — images are "free"
 split('<p>Hello <img src="x"> world</p>', { keep: 8, by: 'c' });
-// { html: '<p>Hello <img src="x"> wo...</p>', kept: 8 }
+// { html: '<p>Hello <img src="x"> w...</p>', kept: 8 }
 
 // With imageWeight — each image costs 5 characters
 split('<p>Hello <img src="x"> world</p>', { keep: 8, by: 'c', imageWeight: 5 });
 // "Hello " = 6 chars, <img> = 5 chars → total 11, exceeds keep of 8
-// { html: '<p>Hello ...</p>', kept: 6, total: 16 }
+// { html: '<p>Hello ...</p>', kept: 6, total: 17 }
 
 // Multiple images
 split('<p>A <img> B <img> C</p>', { keep: 10, by: 'c', imageWeight: 3 });
