@@ -1,4 +1,5 @@
 export { split, count, chunk, text, splitAt, slice, clip, summary, pick, highlight, wrap } from './api/index.js';
+export { parse, HtmlDocument } from './document.js';
 export { tokenize } from './parse/tokenizer.js';
 export type { HtmlInput } from './engine/doc.js';
 
