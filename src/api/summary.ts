@@ -7,7 +7,7 @@ import { updateNonVisibleDepth, BLOCK_ELEMENTS } from '../engine/visibility.js';
 
 export function summary(html: string): SummaryResult {
   if (!html || typeof html !== 'string') {
-    return { characters: 0, words: 0, sentences: 0, lines: 0, blocks: 0, tags: {} };
+    return { characters: 0, words: 0, sentences: 0, lines: 0, blocks: 0, tags: {}, readingTime: 0 };
   }
 
   const tokens = tokenize(html);
@@ -50,5 +50,5 @@ export function summary(html: string): SummaryResult {
   // If there were words but sentence splitter didn't trigger (no period etc.), count as 1
   if (words > 0 && sentences === 0) sentences = 1;
 
-  return { characters, words, sentences, lines, blocks, tags };
+  return { characters, words, sentences, lines, blocks, tags, readingTime: words ? Math.ceil(words / 200) : 0 };
 }

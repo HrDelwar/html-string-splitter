@@ -1,12 +1,13 @@
 export { split, count, chunk, text, splitAt, slice, clip, summary, pick, highlight, wrap } from './api/index.js';
 export { tokenize } from './parse/tokenizer.js';
 
+export { TokenType } from './types.js';
 export type {
   SplitOptions, SplitResult, CountOptions, ChunkOptions,
   SplitAtOptions, SliceOptions, TextOptions, SplitUnit,
   PickOptions, PickResult, HighlightOptions,
   WrapOptions, SummaryResult,
-  Token, TokenType,
+  Token,
 } from './types.js';
 
 // ─── v1 backwards-compatible wrappers (deprecated) ────────────────

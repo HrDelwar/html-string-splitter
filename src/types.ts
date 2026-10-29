@@ -1,8 +1,22 @@
-export type SplitUnit = 'character' | 'word' | 'sentence' | 'line' | 'c' | 'w' | 's' | 'l' | (string & {});
+export type SplitUnit =
+  | 'character' | 'word' | 'sentence' | 'line' | 'byte'
+  | 'c' | 'w' | 's' | 'l'
+  | (string & {});
 
-export interface SplitOptions {
-  keep: number;
+export type BoundaryLevel = 'word' | 'sentence' | 'block';
+
+export interface UnitOptions {
   by?: SplitUnit;
+  wordPattern?: RegExp;
+  /** Enables `Intl.Segmenter` word splitting (CJK, Thai, ...) for this locale. */
+  locale?: string;
+  /** Custom weight per unit, e.g. an LLM token counter. Defaults `by` to `'word'`. */
+  measure?: (text: string) => number;
+  exclude?: string[];
+}
+
+export interface SplitOptions extends UnitOptions {
+  keep?: number;
   ellipsis?: string;
   suffix?: string;
   preserveWords?: boolean | number | 'trim';
@@ -11,10 +25,10 @@ export interface SplitOptions {
   stripComments?: boolean;
   smartEllipsis?: boolean;
   imageWeight?: number;
-  exclude?: string[];
-  wordPattern?: RegExp;
   output?: 'html' | 'text' | 'both';
   from?: 'start' | 'end';
+  /** Maximum length of the returned string, markup included. */
+  maxOutputLength?: number;
 }
 
 export interface SplitResult {
@@ -25,31 +39,38 @@ export interface SplitResult {
   text?: string;
 }
 
-export interface CountOptions {
-  by?: SplitUnit;
-  wordPattern?: RegExp;
+export interface CountOptions extends UnitOptions {
+  imageWeight?: number;
 }
 
-export interface ChunkOptions {
+export interface ChunkOptions extends UnitOptions {
   size: number;
-  by?: SplitUnit;
   overlap?: number;
-  breakAt?: 'word';
+  breakAt?: BoundaryLevel;
+  meta?: boolean;
+  stripComments?: boolean;
 }
 
-export interface SplitAtOptions {
+export interface ChunkResult {
+  html: string;
+  text: string;
+  index: number;
+  start: number;
+  end: number;
+  headings: string[];
+}
+
+export interface SplitAtOptions extends UnitOptions {
   at: number;
-  by?: SplitUnit;
 }
 
 export interface TextOptions {
   separator?: string;
 }
 
-export interface SliceOptions {
+export interface SliceOptions extends UnitOptions {
   start?: number;
   end?: number;
-  by?: SplitUnit;
 }
 
 export interface PickOptions {
@@ -71,12 +92,30 @@ export interface HighlightOptions {
   attributes?: Record<string, string>;
 }
 
-export interface WrapOptions {
+export interface WrapOptions extends UnitOptions {
   every: number;
-  by?: SplitUnit;
   tag?: string;
   className?: string;
   attributes?: Record<string, string>;
+}
+
+export interface ExcerptOptions extends Omit<SplitOptions, 'keep' | 'from' | 'preserveWords' | 'maxOutputLength'> {
+  max: number;
+  min?: number;
+  prefer?: BoundaryLevel[];
+}
+
+export interface SnippetOptions extends UnitOptions {
+  radius?: number;
+  maxSnippets?: number;
+  separator?: string;
+  ellipsis?: string;
+  highlight?: boolean | HighlightOptions;
+  stripTags?: boolean;
+}
+
+export interface SummaryOptions {
+  wordsPerMinute?: number;
 }
 
 export interface SummaryResult {
@@ -86,16 +125,39 @@ export interface SummaryResult {
   lines: number;
   blocks: number;
   tags: Record<string, number>;
+  readingTime: number;
 }
 
-export const enum TokenType {
-  OpenTag = 0,
-  CloseTag = 1,
-  SelfClosingTag = 2,
-  Text = 3,
-  Comment = 4,
-  RawContent = 5,
+export interface StreamOptions extends UnitOptions {
+  keep: number;
+  ellipsis?: string;
+  suffix?: string;
+  stripTags?: boolean;
+  selectiveTags?: string[];
+  stripComments?: boolean;
+  smartEllipsis?: boolean;
+  imageWeight?: number;
 }
+
+export interface StreamSplitter {
+  write(chunk: string): string;
+  end(): string;
+  readonly done: boolean;
+  readonly truncated: boolean;
+  readonly kept: number;
+}
+
+export const TokenType = {
+  OpenTag: 0,
+  CloseTag: 1,
+  SelfClosingTag: 2,
+  Text: 3,
+  Comment: 4,
+  RawContent: 5,
+  Directive: 6,
+} as const;
+
+export type TokenType = (typeof TokenType)[keyof typeof TokenType];
 
 export interface Token {
   type: TokenType;
