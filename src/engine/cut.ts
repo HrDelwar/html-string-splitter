@@ -1,7 +1,7 @@
 import type { SplitOptions, SplitResult } from '../types.js';
 import type { DocCore } from './doc.js';
 import { atBlockEnd, render, renderBalanced, type EmitFilters } from './emit.js';
-import type { AtomList } from './scan.js';
+import { docAtoms, type AtomList } from './scan.js';
 import type { UnitSpec } from './unit.js';
 import { firstIndex, toTagSet } from './util.js';
 
@@ -41,7 +41,7 @@ export function makeCutContext(doc: DocCore, spec: UnitSpec, o: OutputSettings):
   return {
     ...resolveOutput(spec, o),
     doc,
-    atoms: doc.atoms(spec),
+    atoms: docAtoms(doc, spec),
     spec,
     wantText: o.output === 'both',
     charMode: spec.by === 'character' || spec.by === 'byte',

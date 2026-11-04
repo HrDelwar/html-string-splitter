@@ -1,13 +1,14 @@
 import type { SliceOptions } from '../types.js';
 import { toDoc, type HtmlInput } from '../engine/doc.js';
 import { renderBalanced } from '../engine/emit.js';
+import { docAtoms } from '../engine/scan.js';
 import { resolveSpec } from '../engine/unit.js';
 
 export function slice(html: HtmlInput, options?: SliceOptions): string {
   const doc = toDoc(html);
   if (!doc) return '';
   const spec = resolveSpec(options);
-  const atoms = doc.atoms(spec);
+  const atoms = docAtoms(doc, spec);
   const total = atoms.total;
 
   let start = options?.start ?? 0;

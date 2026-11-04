@@ -2,6 +2,7 @@ import type { SnippetOptions } from '../types.js';
 import { toDoc, type HtmlInput } from '../engine/doc.js';
 import { renderBalanced } from '../engine/emit.js';
 import { PlainText } from '../engine/plain.js';
+import { docAtoms } from '../engine/scan.js';
 import { tagPair } from '../engine/search.js';
 import { resolveSpec } from '../engine/unit.js';
 import { cmpPos, firstIndex } from '../engine/util.js';
@@ -26,7 +27,7 @@ export function snippet(html: HtmlInput, query: string | RegExp, options?: Snipp
   const matches = new PlainText(doc).matches(query);
   if (matches.length === 0) return '';
 
-  const atoms = doc.atoms(resolveSpec({ ...o, by: o.by ?? (o.measure ? undefined : 'word') }));
+  const atoms = docAtoms(doc, resolveSpec({ ...o, by: o.by ?? (o.measure ? undefined : 'word') }));
   const n = atoms.n;
   if (n === 0) return '';
 

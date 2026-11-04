@@ -2,7 +2,7 @@ import type { ChunkOptions, ChunkResult } from '../types.js';
 import { toDoc, type HtmlInput } from '../engine/doc.js';
 import { render, renderBalanced, SkipCursor } from '../engine/emit.js';
 import type { AtomList, Heading } from '../engine/scan.js';
-import { BOUNDARY_LEVEL, LVL_SENTENCE, LVL_WORD } from '../engine/scan.js';
+import { BOUNDARY_LEVEL, LVL_SENTENCE, LVL_WORD, docAtoms } from '../engine/scan.js';
 import { resolveSpec } from '../engine/unit.js';
 import { isPositive } from '../engine/util.js';
 
@@ -64,7 +64,7 @@ export function chunk(html: HtmlInput, options: ChunkOptions): string[] | ChunkR
   if (overlap >= size) throw new Error('overlap must be less than size');
 
   const spec = resolveSpec(options);
-  const atoms = doc.atoms(spec);
+  const atoms = docAtoms(doc, spec);
   if (atoms.total === 0) return [];
   const level = breakAt ? BOUNDARY_LEVEL[breakAt] ?? 0 : 0;
   const filters = { exclude: spec.exclude, stripComments, blockSeparator: '\n' };

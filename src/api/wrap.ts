@@ -2,6 +2,7 @@ import type { Token, WrapOptions } from '../types.js';
 import { TokenType } from '../types.js';
 import { toDoc, type HtmlInput } from '../engine/doc.js';
 import { renderBalanced, type Pos } from '../engine/emit.js';
+import { docAtoms } from '../engine/scan.js';
 import { resolveSpec } from '../engine/unit.js';
 import { tagPair } from '../engine/search.js';
 import { isBlank, isPositive } from '../engine/util.js';
@@ -16,7 +17,7 @@ export function wrap(html: HtmlInput, options: WrapOptions): string {
   const [openTag, closeTag] = tagPair('span', options);
   if (spec.tag) return wrapByTag(doc.tokens, every, spec.tag, openTag, closeTag);
 
-  const atoms = doc.atoms(spec);
+  const atoms = docAtoms(doc, spec);
   const { tokens, decoded } = doc;
   const breaks: Pos[] = [];
   let units = every;

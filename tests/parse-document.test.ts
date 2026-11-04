@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { parse, HtmlDocument, split, count, chunk, clip, text, summary } from '../src/index.js';
 import * as tokenizer from '../src/parse/tokenizer.js';
+import { docAtoms } from '../src/engine/scan.js';
 
 const html = '<h1>Title</h1><p>Hello <b>world</b>, this is a test.</p><p>Second paragraph here.</p>';
 
@@ -46,8 +47,8 @@ describe('parse()', () => {
 
   it('caches unit indexes per option set', () => {
     const doc = parse(html);
-    const words = doc.atoms({ by: 'word', tag: null, imageWeight: 0 });
-    expect(doc.atoms({ by: 'word', tag: null, imageWeight: 0 })).toBe(words);
+    const spec = { by: 'word', tag: null, imageWeight: 0 } as const;
+    expect(docAtoms(doc, spec)).toBe(docAtoms(doc, spec));
     const measure = (s: string) => s.length;
     expect(doc.count({ measure })).toBe(doc.count({ measure }));
   });

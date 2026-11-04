@@ -2,8 +2,8 @@ import type { Token } from '../types.js';
 import { TokenType } from '../types.js';
 import { tokenize } from '../parse/tokenizer.js';
 import { decodeEntities } from '../parse/entities.js';
-import { AtomList, CountSink, scanTokens } from './scan.js';
-import { specKey, type UnitSpec } from './unit.js';
+import type { AtomList } from './scan.js';
+import type { UnitSpec } from './unit.js';
 
 /** Parsed HTML: tokens, decoded text and unit indexes are computed once and reused. */
 export class DocCore {
@@ -25,28 +25,8 @@ export class DocCore {
     return this.decodedCache;
   }
 
-  atoms(spec: UnitSpec): AtomList {
-    const cache = this.cacheFor(spec, true)!;
-    const key = specKey(spec);
-    let atoms = cache.get(key);
-    if (!atoms) {
-      atoms = new AtomList(!!spec.tag);
-      scanTokens(this.tokens, this.decoded, spec, atoms);
-      cache.set(key, atoms);
-    }
-    return atoms;
-  }
-
-  /** Total units, reusing a cached index when one exists. */
-  countUnits(spec: UnitSpec): number {
-    const cached = this.cacheFor(spec, false)?.get(specKey(spec));
-    if (cached) return cached.total;
-    const sink = new CountSink();
-    scanTokens(this.tokens, this.decoded, spec, sink);
-    return sink.total;
-  }
-
-  private cacheFor(spec: UnitSpec, create: boolean): Map<string, AtomList> | undefined {
+  /** Unit indexes for one `measure` function (or the shared cache when there is none). */
+  cacheFor(spec: UnitSpec, create: boolean): Map<string, AtomList> | undefined {
     if (!spec.measure) return this.atomCache;
     let cache = this.measureCache.get(spec.measure);
     if (!cache && create) {

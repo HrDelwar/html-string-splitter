@@ -1,6 +1,7 @@
 import type { SplitAtOptions } from '../types.js';
 import { toDoc, type HtmlInput } from '../engine/doc.js';
 import { renderBalanced } from '../engine/emit.js';
+import { docAtoms } from '../engine/scan.js';
 import { resolveSpec } from '../engine/unit.js';
 import { isNonNegative } from '../engine/util.js';
 
@@ -11,7 +12,7 @@ export function splitAt(html: HtmlInput, options: SplitAtOptions): [string, stri
   if (!isNonNegative(at)) return ['', doc.html];
 
   const spec = resolveSpec(options);
-  const atoms = doc.atoms(spec);
+  const atoms = docAtoms(doc, spec);
   if (at >= atoms.total) return [doc.html, ''];
   if (at === 0) return ['', doc.html];
 

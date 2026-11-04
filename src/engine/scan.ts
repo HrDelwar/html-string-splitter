@@ -5,7 +5,8 @@ import {
   ATOMIC_BLOCKS, BLOCK_ELEMENTS, HEADING_LEVEL, MEDIA_ELEMENTS, NON_VISIBLE_ELEMENTS,
   isTagToken, trackDepth, updateNonVisibleDepth,
 } from './visibility.js';
-import type { UnitSpec } from './unit.js';
+import type { DocCore } from './doc.js';
+import { specKey, type UnitSpec } from './unit.js';
 import { firstIndex, type Pos } from './util.js';
 
 export const LVL_WORD = 1;
@@ -499,4 +500,26 @@ export function scanTokens(tokens: Token[], decoded: string[], spec: UnitSpec, s
   const scanner = new Scanner(spec, sink);
   for (let ti = 0; ti < tokens.length; ti++) scanner.token(tokens[ti], ti, decoded[ti]);
   scanner.finish();
+}
+
+/** Unit index of a document for `spec`, built once and cached on the document. */
+export function docAtoms(doc: DocCore, spec: UnitSpec): AtomList {
+  const cache = doc.cacheFor(spec, true)!;
+  const key = specKey(spec);
+  let atoms = cache.get(key);
+  if (!atoms) {
+    atoms = new AtomList(!!spec.tag);
+    scanTokens(doc.tokens, doc.decoded, spec, atoms);
+    cache.set(key, atoms);
+  }
+  return atoms;
+}
+
+/** Total units of a document, reusing a cached index when one exists. */
+export function docCount(doc: DocCore, spec: UnitSpec): number {
+  const cached = doc.cacheFor(spec, false)?.get(specKey(spec));
+  if (cached) return cached.total;
+  const sink = new CountSink();
+  scanTokens(doc.tokens, doc.decoded, spec, sink);
+  return sink.total;
 }
