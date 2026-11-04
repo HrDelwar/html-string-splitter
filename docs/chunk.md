@@ -175,10 +175,13 @@ interface ChunkResult {
   start: number;       // First unit (offset in units into the document)
   end: number;         // One past the last unit
   headings: string[];  // Heading trail in effect at the chunk start (h1 → h6)
+  anchor?: string;     // id of the nearest heading in the trail that has one
 }
 ```
 
 `headings` is the context to store next to each embedding. A chunk from the middle of "Usage" still knows it belongs to "Setup › Usage".
+
+`anchor` lets an answer cite its source: with `<h2 id="usage">`, a chunk under it gets `anchor: 'usage'`, so you can link to `/docs/page#usage`. It is left out when no heading in the trail has an `id`. To list or extract sections directly, see [`outline()` and `section()`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/outline.md).
 
 ## Token-Sized Chunks
 

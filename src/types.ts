@@ -58,6 +58,31 @@ export interface ChunkResult {
   start: number;
   end: number;
   headings: string[];
+  /** `id` of the nearest enclosing heading that has one, for linking to the source. */
+  anchor?: string;
+}
+
+export interface OutlineOptions {
+  /** Deepest heading level to list (default 6). */
+  maxLevel?: number;
+}
+
+export interface OutlineItem {
+  level: number;
+  text: string;
+  /** The heading's `id` attribute. */
+  id?: string;
+  /** `id` when present, otherwise a unique slug of the text. */
+  slug: string;
+  /** Position among all headings in the document, accepted by `section()`. */
+  index: number;
+  /** Words in the section, subsections included and the heading itself excluded. */
+  words: number;
+  children: OutlineItem[];
+}
+
+export interface SectionOptions {
+  includeHeading?: boolean;
 }
 
 export interface SplitAtOptions extends UnitOptions {

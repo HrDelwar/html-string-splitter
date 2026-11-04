@@ -1,6 +1,6 @@
 export {
   split, count, chunk, text, splitAt, slice, clip, summary, pick, highlight, wrap,
-  excerpt, snippet, createSplitter, splitStream, repair, annotate,
+  excerpt, snippet, createSplitter, splitStream, repair, annotate, outline, section,
 } from './api/index.js';
 export { parse, HtmlDocument } from './document.js';
 export { tokenize, Tokenizer } from './parse/tokenizer.js';
@@ -11,6 +11,7 @@ export type {
   SplitOptions, SplitResult, CountOptions, ChunkOptions, ChunkResult,
   SplitAtOptions, SliceOptions, TextOptions, SplitUnit, UnitOptions, BoundaryLevel,
   PickOptions, PickResult, HighlightOptions, Annotation, AnnotateOptions,
+  OutlineOptions, OutlineItem, SectionOptions,
   WrapOptions, SummaryOptions, SummaryResult,
   ExcerptOptions, SnippetOptions, StreamOptions, StreamSplitter,
   Token,

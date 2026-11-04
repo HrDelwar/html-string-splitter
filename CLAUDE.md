@@ -14,7 +14,7 @@ src/
   index.ts          — Public exports + deprecated v1 wrapper functions
   document.ts       — parse() → HtmlDocument (DocCore + one method per API function)
   parse/
-    tokenizer.ts    — tokenize() + incremental Tokenizer (doctype/CDATA directives, RCDATA, bare '<' as text)
+    tokenizer.ts    — tokenize() + incremental Tokenizer (doctype/CDATA directives, RCDATA, bare '<' as text), attributeValue()
     entities.ts     — decodeEntities, rawOffset (decoded → raw offset), cached Intl.Segmenter, utf8Length, escapeHtml
   engine/
     util.ts         — Pos/cmpPos, firstIndex (the one binary search), isPositive/isNonNegative, toTagSet
@@ -25,9 +25,10 @@ src/
     doc.ts          — DocCore: tokens + decoded text + AtomList caches (no scanner import, so text-only APIs tree-shake it); toDoc(), HtmlInput
     cut.ts          — resolveOutput (ellipsis/suffix/filter defaults), cutHead/cutTail/headEnd/tailStart/fitOutput
     plain.ts        — PlainText: visible text (with optional block separator, used by text()) + offset → Pos map, regex matches as marks
+    sections.ts     — sections(): headings with id attribute, unique GitHub-style slug and section end; headingId
     search.ts       — buildRegex, escapeAttr, buildOpenTag, tagPair
   api/              — one file per public function (split, clip, count, chunk, text, split-at, slice,
-                      summary, pick, highlight, wrap, excerpt, snippet, stream, repair, annotate)
+                      summary, pick, highlight, wrap, excerpt, snippet, stream, repair, annotate, outline)
 ```
 
 Data flow: `html` → `DocCore` (tokenize once, decode once) → `docAtoms()` runs the `Scanner` to build an `AtomList` for the unit spec → API picks atom indexes → `render()` emits the token range between two `Pos` with balanced tags.

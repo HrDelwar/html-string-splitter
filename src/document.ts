@@ -1,11 +1,12 @@
 import type {
-  AnnotateOptions, Annotation, ChunkOptions, ChunkResult, CountOptions, ExcerptOptions, HighlightOptions, PickOptions, PickResult,
-  SliceOptions, SnippetOptions, SplitAtOptions, SplitOptions, SplitResult, SummaryOptions, SummaryResult,
-  TextOptions, WrapOptions,
+  AnnotateOptions, Annotation, ChunkOptions, ChunkResult, CountOptions, ExcerptOptions, HighlightOptions,
+  OutlineItem, OutlineOptions, PickOptions, PickResult, SectionOptions, SliceOptions, SnippetOptions,
+  SplitAtOptions, SplitOptions, SplitResult, SummaryOptions, SummaryResult, TextOptions, WrapOptions,
 } from './types.js';
 import { DocCore } from './engine/doc.js';
 import {
-  annotate, chunk, clip, count, excerpt, highlight, pick, repair, slice, snippet, split, splitAt, summary, text, wrap,
+  annotate, chunk, clip, count, excerpt, highlight, outline, pick, repair, section, slice, snippet, split,
+  splitAt, summary, text, wrap,
 } from './api/index.js';
 
 /** Parsed HTML that reuses tokens and unit indexes across calls. */
@@ -27,6 +28,8 @@ export class HtmlDocument extends DocCore {
   snippet(query: string | RegExp, options?: SnippetOptions): string { return snippet(this, query, options); }
   repair(): string { return repair(this); }
   annotate(annotations: Annotation[], options?: AnnotateOptions): string { return annotate(this, annotations, options); }
+  outline(options?: OutlineOptions): OutlineItem[] { return outline(this, options); }
+  section(target: string | number, options?: SectionOptions): string { return section(this, target, options); }
 }
 
 /**

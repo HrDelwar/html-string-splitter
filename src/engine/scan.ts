@@ -21,9 +21,9 @@ export interface AtomSink {
   atom(sTi: number, sOff: number, eTi: number, eOff: number, weight: number, flags: number): void;
   /** Raise the break level after the most recent atom. */
   mark(level: number): void;
-  headingStart?(level: number): void;
+  headingStart?(level: number, ti: number): void;
   headingText?(text: string): void;
-  headingEnd?(): void;
+  headingEnd?(ti: number): void;
 }
 
 export class CountSink implements AtomSink {
@@ -138,7 +138,7 @@ export class Scanner {
       this.headingDepth--;
       if (this.headingDepth === 0) {
         this.boundary(name, type, ti);
-        this.sink.headingEnd?.();
+        this.sink.headingEnd?.(ti);
         return;
       }
     }
@@ -147,7 +147,7 @@ export class Scanner {
     else if (type !== TokenType.CloseTag) this.inlineElement(name, ti);
 
     if (heading && type === TokenType.OpenTag) {
-      if (this.headingDepth === 0) this.sink.headingStart?.(heading);
+      if (this.headingDepth === 0) this.sink.headingStart?.(heading, ti);
       this.headingDepth++;
     }
   }
@@ -393,8 +393,12 @@ export class Scanner {
 export interface Heading {
   level: number;
   text: string;
+  /** Atom range of the heading text. */
   start: number;
   end: number;
+  /** Token indexes of the opening and closing tag. */
+  openTi: number;
+  closeTi: number;
 }
 
 /** Atom index for one document and unit spec. */
@@ -431,18 +435,19 @@ export class AtomList implements AtomSink {
     if ((f & LVL_MASK) < level) this.flags[i] = (f & ~LVL_MASK) | level;
   }
 
-  headingStart(level: number): void {
-    this.heading = { level, text: '', start: this.n, end: this.n };
+  headingStart(level: number, ti: number): void {
+    this.heading = { level, text: '', start: this.n, end: this.n, openTi: ti, closeTi: ti };
   }
 
   headingText(text: string): void {
     if (this.heading) this.heading.text += text;
   }
 
-  headingEnd(): void {
+  headingEnd(ti: number): void {
     const h = this.heading;
     if (!h) return;
     h.end = this.n;
+    h.closeTi = ti;
     h.text = h.text.replace(/\s+/g, ' ').trim();
     if (h.text) this.headings.push(h);
     this.heading = null;

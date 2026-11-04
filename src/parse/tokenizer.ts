@@ -1,4 +1,5 @@
 import { Token, TokenType } from '../types.js';
+import { decodeEntities } from './entities.js';
 
 const VOID_ELEMENTS = new Set([
   'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
@@ -206,4 +207,22 @@ export class Tokenizer {
     this.buffer = '';
     return out;
   }
+}
+
+const ATTRIBUTE = /([^\s"'>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/g;
+
+/**
+ * Decoded value of an attribute on a tag token.
+ *
+ * @return The value, '' for a bare attribute, or undefined when absent
+ */
+export function attributeValue(token: Token, name: string): string | undefined {
+  const attrs = token.attributes;
+  if (!attrs) return undefined;
+  ATTRIBUTE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = ATTRIBUTE.exec(attrs)) !== null) {
+    if (m[1].toLowerCase() === name) return decodeEntities(m[2] ?? m[3] ?? m[4] ?? '');
+  }
+  return undefined;
 }

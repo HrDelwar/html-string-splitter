@@ -95,7 +95,7 @@ clip(html, { maxOutputLength: 2000 });                            // final strin
 ### Chunk for RAG
 ```ts
 chunk(html, { size: 300, by: 'w', breakAt: 'block', overlap: 30, meta: true });
-// [{ html, text, index, start, end, headings: ['Guide', 'Install'] }, ...]
+// [{ html, text, index, start, end, headings: ['Guide', 'Install'], anchor: 'install' }, ...]
 ```
 
 ### Natural excerpts and search snippets
@@ -123,6 +123,14 @@ const doc = parse(html);
 doc.count({ by: 'w' });
 doc.clip({ keep: 50, by: 'w' });
 doc.summary().readingTime;
+```
+
+### Table of contents and sections
+```ts
+import { outline, section } from 'html-string-splitter';
+
+outline(html);              // [{ level: 2, text: 'Install', id: 'install', slug: 'install', words: 340, children: [...] }]
+section(html, 'install');   // balanced HTML of that section only
 ```
 
 ### Apply NLP / LLM results to HTML
@@ -172,6 +180,8 @@ count(html, { by: 'img' });
 
 | Function | Returns | Description |
 |----------|---------|-------------|
+| [`outline(html)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/outline.md) | [`OutlineItem[]`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/outline.md#outlineitem) | Heading tree with ids, slugs and word counts |
+| [`section(html, target)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/outline.md#sectionhtml-target-options--string) | `string` | One section's HTML by id, slug, text or index |
 | [`summary(html)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/count.md#summary) | [`SummaryResult`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/count.md#summaryresult) | Full statistics in one pass |
 | [`pick(html, options)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/pick.md) | [`PickResult[]`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/pick.md#pickresult) | Extract pieces by text or tag |
 | [`highlight(html, query)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/pick.md#highlight) | `string` | Wrap text matches in a tag |
@@ -274,6 +284,7 @@ import type { SplitOptions, SplitResult, ChunkOptions, ChunkResult, HtmlInput, S
 - [Chunk](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/chunk.md) — Pagination and RAG chunking with overlap, boundaries and metadata
 - [Excerpt & Snippet](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/excerpt.md) — Natural-boundary excerpts and search snippets
 - [Streaming](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/stream.md) — Truncate HTML as it arrives
+- [Outline & Section](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/outline.md) — Heading tree and section extraction
 - [Count & Summary](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/count.md) — Counting and statistics
 - [Text Extraction](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/text.md) — Plain text and output modes
 
