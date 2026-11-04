@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-npm package (`html-string-splitter` v3.0) that splits/truncates/chunks/streams HTML strings by character, word, sentence, line, byte, custom weight, or element count while preserving valid HTML structure. Zero dependencies. TypeScript with dual ESM + CJS output.
+npm package (`html-string-splitter` v3.0) that splits/truncates/chunks/streams, annotates, outlines and repairs HTML strings by character, word, sentence, line, byte, custom weight, or element count while preserving valid HTML structure. Zero dependencies. TypeScript with dual ESM + CJS output.
 
 ## Architecture
 

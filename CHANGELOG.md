@@ -34,6 +34,10 @@
 
 - Lines (`by: 'line'`) are visual lines. See the [migration guide](docs/migration.md#v2--v3).
 
+### Package
+
+- `"sideEffects": false` and a scanner-free document core: bundlers only include what you import (a consumer importing only `text()` bundles ~9 KB minified instead of 16 KB).
+
 ### Performance
 
 - `count()` on large documents is up to ~18x faster (cached segmenter, ASCII fast path).
