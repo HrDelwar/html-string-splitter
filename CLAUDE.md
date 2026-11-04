@@ -21,14 +21,14 @@ src/
     unit.ts         — resolveUnit/isTagUnit, resolveSpec(options) → UnitSpec, specKey (cache key)
     visibility.ts   — element sets, trackDepth/updateNonVisibleDepth/isTagToken
     scan.ts         — Scanner (tokens → atoms via AtomSink), AtomList (atom index + start/end/cut/span), CountSink, BOUNDARY_LEVEL, docAtoms/docCount (cached per document)
-    emit.ts         — Emitter (balanced output, filters, marks, breaks, implied end tags), render/renderBalanced, SkipCursor, closesBlockNext/atBlockEnd
+    emit.ts         — Emitter (balanced output, filters, marks, breaks, implied end tags, repair mode), render/renderBalanced, SkipCursor, closesBlockNext/atBlockEnd
     doc.ts          — DocCore: tokens + decoded text + AtomList caches (no scanner import, so text-only APIs tree-shake it); toDoc(), HtmlInput
     cut.ts          — resolveOutput (ellipsis/suffix/filter defaults), cutHead/cutTail/headEnd/tailStart/fitOutput
     plain.ts        — PlainText: visible text + offset → Pos map, regex matches as marks
     extractor.ts    — extractText() with block separator
     search.ts       — buildRegex, escapeAttr, buildOpenTag, tagPair
   api/              — one file per public function (split, clip, count, chunk, text, split-at, slice,
-                      summary, pick, highlight, wrap, excerpt, snippet, stream)
+                      summary, pick, highlight, wrap, excerpt, snippet, stream, repair)
 ```
 
 Data flow: `html` → `DocCore` (tokenize once, decode once) → `docAtoms()` runs the `Scanner` to build an `AtomList` for the unit spec → API picks atom indexes → `render()` emits the token range between two `Pos` with balanced tags.

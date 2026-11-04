@@ -5,7 +5,7 @@ import type {
 } from './types.js';
 import { DocCore } from './engine/doc.js';
 import {
-  chunk, clip, count, excerpt, highlight, pick, slice, snippet, split, splitAt, summary, text, wrap,
+  chunk, clip, count, excerpt, highlight, pick, repair, slice, snippet, split, splitAt, summary, text, wrap,
 } from './api/index.js';
 
 /** Parsed HTML that reuses tokens and unit indexes across calls. */
@@ -25,6 +25,7 @@ export class HtmlDocument extends DocCore {
   wrap(options: WrapOptions): string { return wrap(this, options); }
   excerpt(options: ExcerptOptions): SplitResult { return excerpt(this, options); }
   snippet(query: string | RegExp, options?: SnippetOptions): string { return snippet(this, query, options); }
+  repair(): string { return repair(this); }
 }
 
 /**

@@ -125,6 +125,13 @@ doc.clip({ keep: 50, by: 'w' });
 doc.summary().readingTime;
 ```
 
+### Fix broken or partial HTML
+```ts
+import { repair } from 'html-string-splitter';
+
+repair('<p>Hello <b>world</p><div>');  // '<p>Hello <b>world</b></p><div></div>'
+```
+
 ### Split by HTML tag
 ```ts
 // Keep first 3 paragraphs
@@ -161,6 +168,7 @@ count(html, { by: 'img' });
 | [`pick(html, options)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/pick.md) | [`PickResult[]`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/pick.md#pickresult) | Extract pieces by text or tag |
 | [`highlight(html, query)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/pick.md#highlight) | `string` | Wrap text matches in a tag |
 | [`wrap(html, options)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/wrap.md) | `string` | Wrap content at intervals (by chars, words, or tags) |
+| [`repair(html)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/repair.md) | `string` | Balance broken or partial HTML |
 | [`parse(html)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/parse.md) | `HtmlDocument` | Parse once, call any method without re-tokenizing |
 | [`createSplitter(options)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/stream.md) | `StreamSplitter` | Truncate HTML incrementally |
 | [`splitStream(options)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/stream.md#splitstreamoptions--transformstreamstring-string) | `TransformStream` | Web Streams truncation |
@@ -263,6 +271,7 @@ import type { SplitOptions, SplitResult, ChunkOptions, ChunkResult, HtmlInput, S
 **Advanced:**
 - [Pick & Highlight](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/pick.md) — Extract pieces and highlight matches
 - [Wrap](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/wrap.md) — Wrap by chars, words, or tags
+- [Repair](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/repair.md) — Balance broken or streamed HTML
 - [Parsed Documents](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/parse.md) — Parse once, reuse everywhere
 - [Tokenize](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/tokenize.md) — Low-level and incremental tokenizer API
 

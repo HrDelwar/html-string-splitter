@@ -11,6 +11,7 @@
 - **`excerpt(html, { min, max })`** picks the most natural cut inside a range. ([docs](docs/excerpt.md))
 - **`snippet(html, query)`** builds highlighted search-result excerpts. ([docs](docs/excerpt.md#snippet))
 - **Streaming**: `createSplitter()` and `splitStream()` truncate HTML as it arrives and cancel the upstream source at the limit. ([docs](docs/stream.md))
+- **`repair(html)`** balances broken or partial HTML: closes open and implied elements, drops stray end tags and a tag cut off at the end. ([docs](docs/repair.md))
 - `Tokenizer` class for incremental tokenizing, `Directive` token type, `TokenType` as a runtime object.
 - `summary()` returns `readingTime`; `wordsPerMinute` option.
 - Full HTML4 entity set plus common HTML5 names.

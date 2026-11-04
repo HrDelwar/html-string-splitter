@@ -37,6 +37,8 @@ export interface EmitOptions extends EmitFilters {
   breakClose?: string;
   /** Inserted into text output between blocks so their text doesn't run together. */
   blockSeparator?: string;
+  /** Write end tags for implicitly closed elements, drop stray end tags, close open comments. */
+  repair?: boolean;
 }
 
 interface OpenEntry {
@@ -117,13 +119,15 @@ export class Emitter {
     switch (tok.type) {
       case TokenType.OpenTag:
       case TokenType.CloseTag:
-        if (this.track(tok)) this.out += tok.raw;
+        this.out += this.track(tok) ?? '';
         return;
       case TokenType.SelfClosingTag:
         if (!this.stripped(tok.tagName!)) this.out += tok.raw;
         return;
       case TokenType.Comment:
-        if (!this.o.stripComments && !this.plainStrip) this.out += tok.raw;
+        if (!this.o.stripComments && !this.plainStrip) {
+          this.out += this.o.repair && !tok.raw.endsWith('-->') ? tok.raw + '-->' : tok.raw;
+        }
         return;
       case TokenType.Directive:
       case TokenType.RawContent:
@@ -221,15 +225,16 @@ export class Emitter {
     return !this.o.selectiveTags || this.o.selectiveTags.has(name);
   }
 
-  /** Update the open-element stack for open/close tags; false when the tag is stripped. */
-  private track(tok: Token): boolean {
-    if (tok.type !== TokenType.OpenTag && tok.type !== TokenType.CloseTag) return false;
+  /** Update the open-element stack; returns the markup to write, or null when the tag is stripped. */
+  private track(tok: Token): string | null {
+    if (tok.type !== TokenType.OpenTag && tok.type !== TokenType.CloseTag) return null;
     const name = tok.tagName!;
     this.nvDepth = updateNonVisibleDepth(tok, this.nvDepth);
-    if (this.stripped(name)) return false;
-    if (tok.type === TokenType.OpenTag) this.push(name, tok.raw);
-    else this.pop(name);
-    return true;
+    if (this.stripped(name)) return null;
+    if (tok.type === TokenType.OpenTag) return this.push(name, tok.raw) + tok.raw;
+    const i = this.indexOf(name);
+    if (i === -1) return this.o.repair ? '' : tok.raw;
+    return this.truncate(i + 1) + this.truncate(i, false) + tok.raw;
   }
 
   private reopen(): string {
@@ -238,37 +243,42 @@ export class Emitter {
     return s;
   }
 
-  private push(name: string, raw: string): void {
+  /** Push an element, first closing the ones it implicitly ends; returns their end tags in repair mode. */
+  private push(name: string, raw: string): string {
     const st = this.stack;
     const top = st.length ? st[st.length - 1].name : '';
-    if (top === 'p' && CLOSES_P.has(name)) st.pop();
-    else if (name === 'li') this.popImplied(['li'], ['ul', 'ol']);
-    else if (name === 'dt' || name === 'dd') this.popImplied(['dt', 'dd'], ['dl']);
-    else if (name === 'tr') this.popImplied(['tr'], ['table', 'tbody', 'thead', 'tfoot']);
-    else if (name === 'td' || name === 'th') this.popImplied(['td', 'th'], ['tr', 'table']);
-    else if (name === 'option' && top === 'option') st.pop();
+    let closed = '';
+    if ((top === 'p' && CLOSES_P.has(name)) || (name === 'option' && top === 'option')) closed = this.truncate(st.length - 1);
+    else if (name === 'li') closed = this.popImplied(['li'], ['ul', 'ol']);
+    else if (name === 'dt' || name === 'dd') closed = this.popImplied(['dt', 'dd'], ['dl']);
+    else if (name === 'tr') closed = this.popImplied(['tr'], ['table', 'tbody', 'thead', 'tfoot']);
+    else if (name === 'td' || name === 'th') closed = this.popImplied(['td', 'th'], ['tr', 'table']);
     st.push({ name, raw });
+    return closed;
   }
 
-  private popImplied(names: string[], scope: string[]): void {
+  private popImplied(names: string[], scope: string[]): string {
     const st = this.stack;
     for (let i = st.length - 1; i >= 0; i--) {
-      if (names.includes(st[i].name)) {
-        st.length = i;
-        return;
-      }
-      if (scope.includes(st[i].name)) return;
+      if (names.includes(st[i].name)) return this.truncate(i);
+      if (scope.includes(st[i].name)) return '';
     }
+    return '';
   }
 
-  private pop(name: string): void {
+  private indexOf(name: string): number {
     const st = this.stack;
-    for (let i = st.length - 1; i >= 0; i--) {
-      if (st[i].name === name) {
-        st.length = i;
-        return;
-      }
-    }
+    for (let i = st.length - 1; i >= 0; i--) if (st[i].name === name) return i;
+    return -1;
+  }
+
+  /** Drop stack entries from `i` up; returns their end tags when repairing and `write` is set. */
+  private truncate(i: number, write = true): string {
+    const st = this.stack;
+    let s = '';
+    if (write && this.o.repair) for (let k = st.length - 1; k >= i; k--) s += `</${st[k].name}>`;
+    st.length = i;
+    return s;
   }
 }
 

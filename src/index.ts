@@ -1,6 +1,6 @@
 export {
   split, count, chunk, text, splitAt, slice, clip, summary, pick, highlight, wrap,
-  excerpt, snippet, createSplitter, splitStream,
+  excerpt, snippet, createSplitter, splitStream, repair,
 } from './api/index.js';
 export { parse, HtmlDocument } from './document.js';
 export { tokenize, Tokenizer } from './parse/tokenizer.js';
