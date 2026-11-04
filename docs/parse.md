@@ -25,7 +25,7 @@ doc.summary().readingTime;       // 7
 
 Every function in the package is available as a method with the same options:
 
-`split` · `clip` · `count` · `text` · `splitAt` · `slice` · `chunk` · `summary` · `pick` · `highlight` · `wrap` · `excerpt` · `snippet` · `repair`
+`split` · `clip` · `count` · `text` · `splitAt` · `slice` · `chunk` · `summary` · `pick` · `highlight` · `wrap` · `excerpt` · `snippet` · `annotate` · `repair`
 
 ## Passing a document to functions
 

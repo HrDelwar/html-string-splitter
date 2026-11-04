@@ -3,5 +3,5 @@ export { updateNonVisibleDepth, trackDepth, NON_VISIBLE_ELEMENTS, BLOCK_ELEMENTS
 export { Scanner, AtomList, CountSink, scanTokens, docAtoms, docCount } from './scan.js';
 export { Emitter, render, renderBalanced } from './emit.js';
 export { DocCore, toDoc } from './doc.js';
-export { extractText } from './extractor.js';
+export { PlainText } from './plain.js';
 export { cmpPos, firstIndex } from './util.js';

@@ -125,6 +125,14 @@ doc.clip({ keep: 50, by: 'w' });
 doc.summary().readingTime;
 ```
 
+### Apply NLP / LLM results to HTML
+```ts
+import { annotate, text } from 'html-string-splitter';
+
+const entities = findEntities(text(html));  // [{ start, end, className: 'person' }, ...]
+annotate(html, entities);                   // ranges wrapped in <mark>, HTML kept valid
+```
+
 ### Fix broken or partial HTML
 ```ts
 import { repair } from 'html-string-splitter';
@@ -167,6 +175,7 @@ count(html, { by: 'img' });
 | [`summary(html)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/count.md#summary) | [`SummaryResult`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/count.md#summaryresult) | Full statistics in one pass |
 | [`pick(html, options)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/pick.md) | [`PickResult[]`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/pick.md#pickresult) | Extract pieces by text or tag |
 | [`highlight(html, query)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/pick.md#highlight) | `string` | Wrap text matches in a tag |
+| [`annotate(html, ranges)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/pick.md#annotatehtml-annotations-options--string) | `string` | Wrap plain-text offset ranges in markup |
 | [`wrap(html, options)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/wrap.md) | `string` | Wrap content at intervals (by chars, words, or tags) |
 | [`repair(html)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/repair.md) | `string` | Balance broken or partial HTML |
 | [`parse(html)`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/parse.md) | `HtmlDocument` | Parse once, call any method without re-tokenizing |
@@ -269,7 +278,7 @@ import type { SplitOptions, SplitResult, ChunkOptions, ChunkResult, HtmlInput, S
 - [Text Extraction](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/text.md) — Plain text and output modes
 
 **Advanced:**
-- [Pick & Highlight](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/pick.md) — Extract pieces and highlight matches
+- [Pick, Highlight & Annotate](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/pick.md) — Extract pieces, highlight matches, apply text ranges
 - [Wrap](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/wrap.md) — Wrap by chars, words, or tags
 - [Repair](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/repair.md) — Balance broken or streamed HTML
 - [Parsed Documents](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/parse.md) — Parse once, reuse everywhere

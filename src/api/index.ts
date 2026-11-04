@@ -13,3 +13,4 @@ export { excerpt } from './excerpt.js';
 export { snippet } from './snippet.js';
 export { createSplitter, splitStream } from './stream.js';
 export { repair } from './repair.js';
+export { annotate } from './annotate.js';

@@ -15,6 +15,8 @@ export interface TokenSource {
 export interface Mark {
   s: Pos;
   e: Pos;
+  open?: string;
+  close?: string;
 }
 
 export interface EmitFilters {
@@ -27,6 +29,7 @@ export interface EmitFilters {
 export interface EmitOptions extends EmitFilters {
   /** Re-emit hidden elements (style, script, head, ...) that precede `from`. */
   keepHidden?: boolean;
+  /** Sorted by start, then by end descending; overlapping marks nest. */
   marks?: Mark[];
   markOpen?: string;
   markClose?: string;
@@ -62,6 +65,8 @@ export class Emitter {
   private hiddenBuf = '';
   private hiddenOut = '';
   private mi = 0;
+  private active: Mark[] = [];
+  private opened: Mark[] = [];
   private bi = 0;
   private sepPending = false;
   private readonly plainStrip: boolean;
@@ -153,46 +158,65 @@ export class Emitter {
   }
 
   private emitText(raw: string, ti: number, d: string, a: number, b: number): void {
-    const marks = this.o.marks;
     const cursor = { raw: 0, decoded: 0 };
     let p = a;
     while (p < b) {
-      if (this.o.breaks && p > a) this.breaksAt(ti, p);
+      if (this.o.breaks && p > a) {
+        this.closeMarks();
+        this.breaksAt(ti, p);
+      }
       let q = b;
-      let marked = false;
 
       if (this.o.breaks) {
         const br = this.o.breaks[this.bi];
         if (br && br.ti === ti && br.off > p && br.off < q) q = br.off;
       }
-
-      if (marks) {
-        const here = { ti, off: p };
-        while (this.mi < marks.length && cmpPos(marks[this.mi].e, here) <= 0) this.mi++;
-        const m = marks[this.mi];
-        if (m) {
-          if (cmpPos(m.s, here) <= 0) {
-            marked = true;
-            if (m.e.ti === ti && m.e.off < q) q = m.e.off;
-          } else if (m.s.ti === ti && m.s.off < q) {
-            q = m.s.off;
-          }
-        }
-      }
+      if (this.o.marks) q = this.markSpan(ti, p, q);
 
       const s = d.slice(p, q);
       this.separate();
       this.text += s;
-      let piece: string;
+      if (this.o.marks) this.openMarks();
       if (this.plainStrip) {
-        piece = this.o.escapeText ? escapeHtml(s) : s;
+        this.out += this.o.escapeText ? escapeHtml(s) : s;
       } else {
         const r0 = rawOffset(raw, p, cursor);
-        piece = raw.slice(r0, rawOffset(raw, q, cursor));
+        this.out += raw.slice(r0, rawOffset(raw, q, cursor));
       }
-      this.out += marked ? this.o.markOpen! + piece + this.o.markClose! : piece;
       p = q;
     }
+    this.closeMarks();
+  }
+
+  /** Update the marks covering offset `p` of token `ti`; returns where that set next changes. */
+  private markSpan(ti: number, p: number, q: number): number {
+    const marks = this.o.marks!;
+    const here = { ti, off: p };
+    if (this.active.length) this.active = this.active.filter(m => cmpPos(m.e, here) > 0);
+    while (this.mi < marks.length && cmpPos(marks[this.mi].s, here) <= 0) {
+      const m = marks[this.mi++];
+      if (cmpPos(m.e, here) > 0) this.active.push(m);
+    }
+    const next = marks[this.mi];
+    if (next && next.s.ti === ti && next.s.off < q) q = next.s.off;
+    for (const m of this.active) if (m.e.ti === ti && m.e.off < q) q = m.e.off;
+    return q;
+  }
+
+  private openMarks(): void {
+    const { active, opened } = this;
+    let k = 0;
+    while (k < opened.length && k < active.length && opened[k] === active[k]) k++;
+    for (let j = opened.length - 1; j >= k; j--) this.out += opened[j].close ?? this.o.markClose!;
+    for (let j = k; j < active.length; j++) this.out += active[j].open ?? this.o.markOpen!;
+    this.opened = active.slice();
+  }
+
+  private closeMarks(): void {
+    const opened = this.opened;
+    if (!opened.length) return;
+    for (let j = opened.length - 1; j >= 0; j--) this.out += opened[j].close ?? this.o.markClose!;
+    this.opened = [];
   }
 
   private separate(): void {

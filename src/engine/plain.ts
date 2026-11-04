@@ -2,7 +2,7 @@ import { TokenType } from '../types.js';
 import type { DocCore } from './doc.js';
 import type { Mark } from './emit.js';
 import { firstIndex, type Pos } from './util.js';
-import { updateNonVisibleDepth } from './visibility.js';
+import { BLOCK_ELEMENTS, updateNonVisibleDepth } from './visibility.js';
 import { buildRegex } from './search.js';
 
 export interface TextMatch {
@@ -17,24 +17,42 @@ export class PlainText {
   text = '';
   private readonly segTi: number[] = [];
   private readonly segStart: number[] = [];
+  private readonly segEnd: number[] = [];
 
-  constructor(doc: DocCore) {
+  /**
+   * @param doc Parsed document
+   * @param separator Inserted before block elements, as in `text()`
+   */
+  constructor(doc: DocCore, separator?: string) {
     const { tokens, decoded } = doc;
     let nv = 0;
     for (let ti = 0; ti < tokens.length; ti++) {
-      nv = updateNonVisibleDepth(tokens[ti], nv);
-      if (nv > 0 || tokens[ti].type !== TokenType.Text || !decoded[ti]) continue;
+      const tok = tokens[ti];
+      nv = updateNonVisibleDepth(tok, nv);
+      if (nv > 0) continue;
+      if (separator && this.text && (tok.type === TokenType.OpenTag || tok.type === TokenType.SelfClosingTag) &&
+        BLOCK_ELEMENTS.has(tok.tagName!) && !this.text.endsWith(separator)) {
+        this.text += separator;
+      }
+      if (tok.type !== TokenType.Text || !decoded[ti]) continue;
       this.segTi.push(ti);
       this.segStart.push(this.text.length);
       this.text += decoded[ti];
+      this.segEnd.push(this.text.length);
     }
   }
 
-  /** Token position for a plain-text offset; `end` resolves boundaries to the earlier token. */
+  /**
+   * Token position for a plain-text offset. Offsets inside a separator move to the next text
+   * for a start, or back to the previous text for an `end`.
+   */
   pos(offset: number, end = false): Pos {
     const starts = this.segStart;
     const i = Math.max(0, firstIndex(0, starts.length, k => (end ? starts[k] >= offset : starts[k] > offset)) - 1);
-    return { ti: this.segTi[i], off: offset - starts[i] };
+    const len = this.segEnd[i] - starts[i];
+    const off = offset - starts[i];
+    if (off <= len) return { ti: this.segTi[i], off };
+    return !end && i + 1 < starts.length ? { ti: this.segTi[i + 1], off: 0 } : { ti: this.segTi[i], off: len };
   }
 
   matches(query: string | RegExp): TextMatch[] {

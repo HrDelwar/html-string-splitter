@@ -1,4 +1,4 @@
-# Pick & Highlight
+# Pick, Highlight & Annotate
 
 ## `pick(html, options)` → `PickResult[]`
 
@@ -148,5 +148,55 @@ interface HighlightOptions {
   tag?: string;                        // wrapper element (default: 'mark')
   className?: string;                  // CSS class
   attributes?: Record<string, string>; // extra HTML attributes
+}
+```
+
+---
+
+## `annotate(html, annotations, options?)` → `string`
+
+Apply ranges found in the **plain text** back onto the HTML. NER models, LLMs, spell checkers and search engines return offsets into text; `annotate()` turns them into markup without breaking the HTML.
+
+```ts
+import { annotate, text } from 'html-string-splitter';
+
+const html = '<p>Ada Lovelace met <b>Charles Bab</b>bage in London.</p>';
+const plain = text(html);  // 'Ada Lovelace met Charles Babbage in London.'
+
+const entities = findEntities(plain);
+// [{ start: 0, end: 12, className: 'person' }, { start: 17, end: 32, className: 'person' }, ...]
+
+annotate(html, entities);
+// '<p><mark class="person">Ada Lovelace</mark> met <b><mark class="person">Charles Bab</mark></b><mark class="person">bage</mark> in London.</p>'
+```
+
+- Offsets are UTF-16 indexes into `text(html, { separator })`. If you extracted the text with a separator, pass the same `separator` to `annotate()`.
+- A range that crosses element boundaries is split into pieces, as `highlight()` does.
+- Ranges may nest or overlap, in any order. Nested ranges nest in the output; overlapping ones are split so the result stays valid:
+
+```ts
+annotate('<p>abcdefgh</p>', [{ start: 0, end: 5, tag: 'i' }, { start: 3, end: 8, tag: 'u' }]);
+// '<p><i>abc<u>de</u></i><u>fgh</u></p>'
+```
+
+- Each range can set its own `tag`, `className` and `attributes`; `options` gives the defaults, and attributes from both are merged.
+- Out-of-range offsets are clamped; empty or invalid ranges are ignored.
+
+### `Annotation`
+
+```ts
+interface Annotation {
+  start: number;                       // offset into the plain text
+  end: number;                         // exclusive
+  tag?: string;
+  className?: string;
+  attributes?: Record<string, string>;
+}
+
+interface AnnotateOptions {
+  tag?: string;                        // default wrapper (default: 'mark')
+  className?: string;
+  attributes?: Record<string, string>;
+  separator?: string;                  // separator the offsets were computed with
 }
 ```

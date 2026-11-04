@@ -24,11 +24,10 @@ src/
     emit.ts         — Emitter (balanced output, filters, marks, breaks, implied end tags, repair mode), render/renderBalanced, SkipCursor, closesBlockNext/atBlockEnd
     doc.ts          — DocCore: tokens + decoded text + AtomList caches (no scanner import, so text-only APIs tree-shake it); toDoc(), HtmlInput
     cut.ts          — resolveOutput (ellipsis/suffix/filter defaults), cutHead/cutTail/headEnd/tailStart/fitOutput
-    plain.ts        — PlainText: visible text + offset → Pos map, regex matches as marks
-    extractor.ts    — extractText() with block separator
+    plain.ts        — PlainText: visible text (with optional block separator, used by text()) + offset → Pos map, regex matches as marks
     search.ts       — buildRegex, escapeAttr, buildOpenTag, tagPair
   api/              — one file per public function (split, clip, count, chunk, text, split-at, slice,
-                      summary, pick, highlight, wrap, excerpt, snippet, stream, repair)
+                      summary, pick, highlight, wrap, excerpt, snippet, stream, repair, annotate)
 ```
 
 Data flow: `html` → `DocCore` (tokenize once, decode once) → `docAtoms()` runs the `Scanner` to build an `AtomList` for the unit spec → API picks atom indexes → `render()` emits the token range between two `Pos` with balanced tags.
@@ -56,6 +55,7 @@ Data flow: `html` → `DocCore` (tokenize once, decode once) → `docAtoms()` ru
 - Never tokenize the same HTML twice — every API accepts `HtmlInput` (string or parsed document) and works off `DocCore`
 - Shared logic lives in one place: binary search (`firstIndex`), depth tracking (`trackDepth`), positions (`AtomList.start/end/cut/span`), rendering (`render`/`renderBalanced`), output defaults (`resolveOutput`)
 - `preserveWords: true` backtracks to last word boundary, `number` scans forward
+- Marks (highlight, snippet, annotate) are sorted by start then end descending; the emitter nests them and splits them at element boundaries and where they overlap
 - `smartEllipsis` suppresses the ellipsis only at clean block ends (`closesBlockNext`); `excerpt()` defaults it on
 - Streaming (`createSplitter`) holds tokens until the scanner confirms the unit fits, so output equals `clip()` for any chunk boundaries
 - Docs live in `docs/` directory, README links use full GitHub URLs (works on npm + GitHub)

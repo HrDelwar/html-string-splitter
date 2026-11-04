@@ -92,6 +92,17 @@ export interface HighlightOptions {
   attributes?: Record<string, string>;
 }
 
+export interface Annotation extends HighlightOptions {
+  /** Offset into `text(html, { separator })`. */
+  start: number;
+  end: number;
+}
+
+export interface AnnotateOptions extends HighlightOptions {
+  /** Must match the separator the offsets were computed with. */
+  separator?: string;
+}
+
 export interface WrapOptions extends UnitOptions {
   every: number;
   tag?: string;
