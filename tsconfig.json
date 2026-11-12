@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "ESNext.Intl"],
+    "lib": ["ES2022", "ESNext.Intl", "DOM"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "outDir": "./dist",

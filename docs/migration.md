@@ -1,4 +1,73 @@
-# Migration from v1
+# Migration
+
+## v2 → v3
+
+The API is the same. Every v2 call still works and the options keep their names. What changed is accuracy: v3 counts and cuts text the way a browser renders it, so some results differ.
+
+### Words and sentences across inline tags
+
+```ts
+count('<p>un<b>believ</b>able</p>', { by: 'w' });
+// v2: 3   v3: 1
+
+count('<p>This is <b>bold</b> text. Next one.</p>', { by: 's' });
+// v2: 4   v3: 2
+```
+
+A heading or other block is always its own sentence, so `summary().sentences` can go up by one per heading.
+
+### Lines are visual lines
+
+```ts
+count('<div><p>Nested</p></div>', { by: 'l' });   // v2: 2   v3: 1
+count('<ul><li>a</li><li>b</li></ul>', { by: 'l' }); // v2: 3   v3: 2
+count('Line 1<br>Line 2<br>Line 3', { by: 'l' });  // v2: 2   v3: 3
+count('a<br><br>b', { by: 'l' });                  // v2: 2   v3: 3 (blank line)
+```
+
+`clip(html, { by: 'l' })` now places the ellipsis inside the last kept line: `<p>A...</p>` instead of `<p>A</p>...`.
+
+### Output keeps the source text
+
+Word and sentence cuts, `splitAt`, `slice`, `chunk`, `wrap` and `highlight` used to rebuild text from decoded words. They now copy the original source:
+
+```ts
+clip('<p>a &lt;b&gt;x&lt;/b&gt; c d</p>', { keep: 2, by: 'w' });
+// v2: '<p>a <b>x</b>...</p>'              ← escaped text became live markup
+// v3: '<p>a &lt;b&gt;x&lt;/b&gt;...</p>'
+
+clip('<p>a\n\n  b   c</p>', { keep: 2, by: 'w' });
+// v2: '<p>a b...</p>'   v3: '<p>a\n\n  b...</p>'
+```
+
+If you relied on v2 output being decoded, use `output: 'text'` or `text()`.
+
+### Options apply everywhere
+
+`from: 'end'`, `splitAt`, `slice` and `chunk` now honor `exclude`, `stripComments`, `preserveWords`, `wordPattern`, `locale` and `measure`. `exclude` also drops self-closing elements such as `<img>`.
+
+### Skipped content leaves no empty tags
+
+```ts
+splitAt('<p>a b</p><p>c d</p>', { at: 2, by: 'w' })[1];
+// v2: '<p></p><p>c d</p>'   v3: '<p>c d</p>'
+```
+
+### Tokens
+
+- `TokenType` is a runtime object instead of a `const enum`: `TokenType.Text` works in plain JavaScript and with `isolatedModules`.
+- New token type `6` (`Directive`) for `<!DOCTYPE>`, `<?...?>` and CDATA. In v2 these were open tags, and truncated output gained a stray `</!doctype>`.
+- A bare `<` in text (`a < b`) is text, no longer the start of a tag.
+
+### Smaller changes
+
+- `chunk()` in word mode no longer starts the next chunk with the separating whitespace.
+- `summary()` has a new `readingTime` field, and plain text without tags counts as one line.
+- Invalid numeric entities (`&#99999999;`) decode to `U+FFFD` instead of throwing.
+
+---
+
+## v1 → v2
 
 ## Quick Reference
 

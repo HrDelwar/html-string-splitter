@@ -1,12 +1,20 @@
-export { split, count, chunk, text, splitAt, slice, clip, summary, pick, highlight, wrap } from './api/index.js';
-export { tokenize } from './parse/tokenizer.js';
+export {
+  split, count, chunk, text, splitAt, slice, clip, summary, pick, highlight, wrap,
+  excerpt, snippet, createSplitter, splitStream, repair, annotate, outline, section,
+} from './api/index.js';
+export { parse, HtmlDocument } from './document.js';
+export { tokenize, Tokenizer } from './parse/tokenizer.js';
+export type { HtmlInput } from './engine/doc.js';
 
+export { TokenType } from './types.js';
 export type {
-  SplitOptions, SplitResult, CountOptions, ChunkOptions,
-  SplitAtOptions, SliceOptions, TextOptions, SplitUnit,
-  PickOptions, PickResult, HighlightOptions,
-  WrapOptions, SummaryResult,
-  Token, TokenType,
+  SplitOptions, SplitResult, CountOptions, ChunkOptions, ChunkResult,
+  SplitAtOptions, SliceOptions, TextOptions, SplitUnit, UnitOptions, BoundaryLevel,
+  PickOptions, PickResult, HighlightOptions, Annotation, AnnotateOptions,
+  OutlineOptions, OutlineItem, SectionOptions,
+  WrapOptions, SummaryOptions, SummaryResult,
+  ExcerptOptions, SnippetOptions, StreamOptions, StreamSplitter,
+  Token,
 } from './types.js';
 
 // ─── v1 backwards-compatible wrappers (deprecated) ────────────────

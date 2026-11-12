@@ -1,44 +1,10 @@
-import type { CountOptions, SplitUnit, Token } from '../types.js';
-import { TokenType } from '../types.js';
-import { decodeEntities } from '../parse/entities.js';
-import { tokenize } from '../parse/tokenizer.js';
-import { resolveUnit, isTagUnit } from '../engine/unit.js';
-import { countUnits, countByTag } from '../engine/counter.js';
-import { updateNonVisibleDepth, BLOCK_ELEMENTS } from '../engine/visibility.js';
+import type { CountOptions } from '../types.js';
+import { toDoc, type HtmlInput } from '../engine/doc.js';
+import { docCount } from '../engine/scan.js';
+import { resolveSpec } from '../engine/unit.js';
 
-/** Count from pre-tokenized tokens (avoids re-tokenizing) */
-export function countFromTokens(tokens: Token[], by: SplitUnit, wordPattern?: RegExp): number {
-  if (by === 'line') return countLines(tokens);
-
-  let total = 0;
-  let nvDepth = 0;
-  for (const token of tokens) {
-    nvDepth = updateNonVisibleDepth(token, nvDepth);
-    if (nvDepth === 0 && token.type === TokenType.Text && token.content) {
-      total += countUnits(decodeEntities(token.content), by, wordPattern);
-    }
-  }
-  return total;
-}
-
-function countLines(tokens: Token[]): number {
-  let lines = 0;
-  let nvDepth = 0;
-  for (const token of tokens) {
-    nvDepth = updateNonVisibleDepth(token, nvDepth);
-    if (nvDepth > 0) continue;
-    if (token.type === TokenType.OpenTag && BLOCK_ELEMENTS.has(token.tagName!)) lines++;
-    if (token.type === TokenType.SelfClosingTag && (token.tagName === 'br' || token.tagName === 'hr')) lines++;
-  }
-  return lines;
-}
-
-export function count(html: string, options?: CountOptions): number {
-  if (!html || typeof html !== 'string') return 0;
-
-  const by = resolveUnit(options?.by);
-  const tag = isTagUnit(by);
-  if (tag) return countByTag(html, tag);
-
-  return countFromTokens(tokenize(html), by, options?.wordPattern);
+export function count(html: HtmlInput, options?: CountOptions): number {
+  const doc = toDoc(html);
+  if (!doc) return 0;
+  return docCount(doc, resolveSpec(options));
 }

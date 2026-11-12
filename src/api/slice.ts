@@ -1,38 +1,28 @@
 import type { SliceOptions } from '../types.js';
-import { tokenize } from '../parse/tokenizer.js';
-import { resolveUnit, isTagUnit } from '../engine/unit.js';
-import { countByTag } from '../engine/counter.js';
-import { splitCore } from '../engine/truncator.js';
-import { splitByTag, stripConsumedByTag } from '../engine/tag-truncator.js';
-import { stripConsumed } from '../engine/skipper.js';
-import { countFromTokens } from './count.js';
+import { toDoc, type HtmlInput } from '../engine/doc.js';
+import { renderBalanced } from '../engine/emit.js';
+import { docAtoms } from '../engine/scan.js';
+import { resolveSpec } from '../engine/unit.js';
 
-export function slice(html: string, options?: SliceOptions): string {
-  if (!html || typeof html !== 'string') return '';
-  const by = resolveUnit(options?.by);
-  const tag = isTagUnit(by);
-
-  const total = tag ? countByTag(html, tag) : countFromTokens(tokenize(html), by);
+export function slice(html: HtmlInput, options?: SliceOptions): string {
+  const doc = toDoc(html);
+  if (!doc) return '';
+  const spec = resolveSpec(options);
+  const atoms = docAtoms(doc, spec);
+  const total = atoms.total;
 
   let start = options?.start ?? 0;
   let end = options?.end ?? total;
-
   if (start < 0) start = Math.max(0, total + start);
   if (end < 0) end = Math.max(0, total + end);
   end = Math.min(end, total);
-
   if (start >= end || start >= total) return '';
 
-  let remaining = html;
-  if (start > 0) {
-    remaining = tag
-      ? stripConsumedByTag(html, start, tag)
-      : stripConsumed(html, start, by);
-  }
+  const a = atoms.firstFrom(start);
+  const b = atoms.lastWithin(end);
+  if (a > b) return '';
+  if (a === 0 && b === atoms.n - 1 && !spec.exclude) return doc.html;
 
-  const take = end - start;
-  if (tag) {
-    return splitByTag(remaining, take, tag, '', '').html;
-  }
-  return splitCore(remaining, { keep: take, by, ellipsis: '', suffix: '', preserveWords: false, stripTags: false }).html;
+  const [from, to] = atoms.span(a, b);
+  return renderBalanced(doc, from, to, { exclude: spec.exclude, keepHidden: true }).html;
 }

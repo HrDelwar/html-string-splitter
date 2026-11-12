@@ -1,8 +1,8 @@
 # Chunk
 
-## `chunk(html, options)` → `string[]`
+## `chunk(html, options)` → `string[]` | `ChunkResult[]`
 
-Split HTML into multiple equal-sized parts. Each chunk is valid HTML with properly closed tags.
+Split HTML into multiple equal-sized parts. Each chunk is valid HTML with properly closed tags. Built for pagination and for RAG/LLM pipelines: chunks can end on block or sentence boundaries, carry their heading trail, and be sized by a token counter.
 
 ```ts
 import { chunk } from 'html-string-splitter';
@@ -33,7 +33,7 @@ const groups = chunk(
 //   '<ul><li>C</li><li>D</li></ul>'
 // ]
 
-// Split by line (block elements)
+// Split by line
 const sections = chunk(
   '<p>First</p><p>Second</p><p>Third</p><p>Fourth</p>',
   { size: 2, by: 'line' }
@@ -55,7 +55,11 @@ chunk('<p>Short</p>', { size: 100, by: 'c' });
 | `size` | `number` | — | **(required)** Units per chunk |
 | `by` | [`SplitUnit`](https://github.com/HrDelwar/html-string-splitter#split-units) | `'c'` | What to count |
 | `overlap` | `number` | `0` | Overlapping units between chunks |
-| `breakAt` | `'word'` | — | Don't cut mid-word |
+| `breakAt` | `'word' \| 'sentence' \| 'block'` | — | Preferred place to end a chunk |
+| `meta` | `boolean` | `false` | Return `ChunkResult` objects instead of strings |
+| `measure` | `(text) => number` | — | Size chunks by a custom weight, e.g. LLM tokens |
+| `exclude` | `string[]` | — | Elements to drop and not count |
+| `stripComments` | `boolean` | `false` | Remove HTML comments |
 
 See [Options Reference](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/options.md) for detailed explanations of each option.
 
@@ -105,11 +109,94 @@ chunk('<p>Hello beautiful world today</p>', { size: 8, by: 'c' });
 //   ...
 // ]
 
-// With breakAt: 'word' — trims incomplete last word
-chunk('<p>Hello beautiful world today</p>', { size: 8, by: 'c', breakAt: 'word' });
+// With breakAt: 'word' — each chunk ends after a whole word
+chunk('<p>Hello beautiful world today</p>', { size: 10, by: 'c', breakAt: 'word' });
 // [
-//   '<p>Hello</p>',        ← clean word boundary
-//   '<p>beautiful</p>',
+//   '<p>Hello </p>',
+//   '<p>beautiful </p>',
+//   '<p>world </p>',
+//   '<p>today</p>'
+// ]
+```
+
+In character mode, whitespace stays with the chunk before it, so the chunks together contain all of the text.
+
+### `breakAt: 'sentence'` and `'block'`
+
+`'block'` ends chunks at the end of a paragraph, list item, heading section and so on. `'sentence'` ends them after a full sentence. If a single block or sentence is larger than `size`, the chunk falls back to the next level down (block → sentence → word → hard cut).
+
+```ts
+const doc = '<h1>Setup</h1><p>Install the package. Then import it.</p>' +
+  '<h2>Usage</h2><p>Call clip() with a limit. It returns valid HTML.</p>';
+
+chunk(doc, { size: 8, by: 'w', breakAt: 'block' });
+// [
+//   '<h1>Setup</h1><p>Install the package. Then import it.</p>',
+//   '<h2>Usage</h2><p>Call clip() with a limit.</p>',   ← block too big, ended at a sentence
+//   '<p>It returns valid HTML.</p>'
+// ]
+
+chunk('<p>One two three. Four five six seven. Eight nine.</p>', { size: 5, by: 'w', breakAt: 'sentence' });
+// ['<p>One two three.</p>', '<p>Four five six seven.</p>', '<p>Eight nine.</p>']
+```
+
+- A chunk never ends right after a heading; the heading starts the next chunk.
+- `<table>` and `<pre>` are kept whole when they fit.
+- With `overlap`, the overlap is moved to start at a sentence (or block) boundary.
+
+## Chunk Metadata
+
+`meta: true` returns objects instead of strings:
+
+```ts
+chunk(doc, { size: 8, by: 'w', breakAt: 'block', meta: true });
+// [
+//   {
+//     html: '<h1>Setup</h1><p>Install the package. Then import it.</p>',
+//     text: 'Setup\nInstall the package. Then import it.',
+//     index: 0, start: 0, end: 7,
+//     headings: ['Setup']
+//   },
+//   {
+//     html: '<h2>Usage</h2><p>Call clip() with a limit.</p>',
+//     text: 'Usage\nCall clip() with a limit.',
+//     index: 1, start: 7, end: 13,
+//     headings: ['Setup', 'Usage']
+//   },
 //   ...
 // ]
 ```
+
+```ts
+interface ChunkResult {
+  html: string;        // Valid HTML for the chunk
+  text: string;        // Plain text, blocks separated by '\n'
+  index: number;       // Position in the result
+  start: number;       // First unit (offset in units into the document)
+  end: number;         // One past the last unit
+  headings: string[];  // Heading trail in effect at the chunk start (h1 → h6)
+  anchor?: string;     // id of the nearest heading in the trail that has one
+}
+```
+
+`headings` is the context to store next to each embedding. A chunk from the middle of "Usage" still knows it belongs to "Setup › Usage".
+
+`anchor` lets an answer cite its source: with `<h2 id="usage">`, a chunk under it gets `anchor: 'usage'`, so you can link to `/docs/page#usage`. It is left out when no heading in the trail has an `id`. To list or extract sections directly, see [`outline()` and `section()`](https://github.com/HrDelwar/html-string-splitter/blob/master/docs/outline.md).
+
+## Token-Sized Chunks
+
+Pass a `measure` function to size chunks by anything, for example your model's tokenizer:
+
+```ts
+import { encode } from 'gpt-tokenizer';
+
+chunk(html, {
+  size: 512,
+  measure: text => encode(text).length,
+  breakAt: 'block',
+  overlap: 64,
+  meta: true,
+});
+```
+
+`measure` is applied per word, so totals are a close approximation of the real token count of the full text.

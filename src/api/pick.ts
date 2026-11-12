@@ -1,23 +1,22 @@
 import type { PickOptions, PickResult } from '../types.js';
 import { TokenType } from '../types.js';
-import { tokenize } from '../parse/tokenizer.js';
-import { decodeEntities } from '../parse/entities.js';
-import { updateNonVisibleDepth } from '../engine/visibility.js';
-import { buildRegex } from '../engine/search.js';
-import { slice } from './slice.js';
+import { toDoc, type DocCore, type HtmlInput } from '../engine/doc.js';
+import { renderBalanced } from '../engine/emit.js';
+import { PlainText } from '../engine/plain.js';
 
-export function pick(html: string, options: PickOptions): PickResult[] {
-  if (!html || typeof html !== 'string') return [];
+export function pick(html: HtmlInput, options: PickOptions): PickResult[] {
+  const doc = toDoc(html);
+  if (!doc) return [];
 
   const { tag, text: query, limit } = options;
   if (!tag && !query) return [];
 
-  const results = tag ? pickByTag(html, tag) : pickByText(html, query!);
+  const results = tag ? pickByTag(doc, tag) : pickByText(doc, query!);
   return limit ? results.slice(0, limit) : results;
 }
 
-function pickByTag(html: string, tagName: string): PickResult[] {
-  const tokens = tokenize(html);
+function pickByTag(doc: DocCore, tagName: string): PickResult[] {
+  const { tokens, decoded } = doc;
   const results: PickResult[] = [];
   const tag = tagName.toLowerCase();
   let idx = 0;
@@ -41,9 +40,7 @@ function pickByTag(html: string, tagName: string): PickResult[] {
         raw += t.raw;
         if (t.type === TokenType.OpenTag && t.tagName === tag) depth++;
         if (t.type === TokenType.CloseTag && t.tagName === tag) depth--;
-        if (depth > 0 && t.type === TokenType.Text && t.content) {
-          plainText += decodeEntities(t.content);
-        }
+        if (depth > 0 && t.type === TokenType.Text) plainText += decoded[j];
       }
 
       results.push({ html: raw, text: plainText, start: idx, end: idx + 1 });
@@ -54,36 +51,12 @@ function pickByTag(html: string, tagName: string): PickResult[] {
   return results;
 }
 
-function pickByText(html: string, query: string | RegExp): PickResult[] {
-  const tokens = tokenize(html);
-  let plainText = '';
-  let nvDepth = 0;
-
-  for (const token of tokens) {
-    nvDepth = updateNonVisibleDepth(token, nvDepth);
-    if (nvDepth > 0) continue;
-    if (token.type === TokenType.Text && token.content) {
-      plainText += decodeEntities(token.content);
-    }
-  }
-
-  if (!plainText) return [];
-
-  const regex = buildRegex(query);
-  const results: PickResult[] = [];
-  let match: RegExpExecArray | null;
-
-  while ((match = regex.exec(plainText)) !== null) {
-    const start = match.index;
-    const end = match.index + match[0].length;
-    results.push({
-      html: slice(html, { start, end, by: 'c' }),
-      text: match[0],
-      start,
-      end,
-    });
-    if (match[0].length === 0) regex.lastIndex++;
-  }
-
-  return results;
+function pickByText(doc: DocCore, query: string | RegExp): PickResult[] {
+  const plain = new PlainText(doc);
+  return plain.matches(query).map(m => ({
+    html: renderBalanced(doc, m.mark.s, m.mark.e, {}).html,
+    text: m.text,
+    start: m.start,
+    end: m.end,
+  }));
 }
